@@ -47,3 +47,4 @@ pnpm-debug.log*
 
 # Prisma generated client
 lib/generated/
+*.tsbuildinfo

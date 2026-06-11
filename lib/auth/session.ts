@@ -45,7 +45,10 @@ export function isAdmin(role: "owner" | "manager" | "staff") {
   return role === "owner" || role === "manager";
 }
 
-/** Where to send a user right after authentication. */
+/** Where to send a user right after authentication.
+ *  Pending invites deliberately take precedence over an existing active
+ *  workspace: accepting is one click and ensures a staff member invited to
+ *  a second property doesn't silently never join it. */
 export async function afterAuthDestination(userId: string): Promise<string> {
   const db = dbForRequest(userId);
   const memberships = await db.membership.findMany({

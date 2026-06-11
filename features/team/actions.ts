@@ -1,11 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { z } from "zod";
 import { isAdmin, requireMembership, requireUser } from "@/lib/auth/session";
 import { dbAdmin } from "@/lib/db/admin";
 import { dbForRequest } from "@/lib/db/scoped";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { inviteSchema } from "./invite-schema";
 
 export type InviteFormState = {
   error?: string;
@@ -15,21 +15,6 @@ export type InviteFormState = {
     note?: string;
   }>;
 };
-
-const inviteSchema = z.object({
-  slug: z.string().min(1),
-  emails: z
-    .string()
-    .transform((s) =>
-      s
-        .split(/[\n,;]+/)
-        .map((e) => e.trim().toLowerCase())
-        .filter(Boolean),
-    )
-    .pipe(
-      z.array(z.string().email("One of the emails is invalid")).min(1).max(10),
-    ),
-});
 
 function siteUrl(): string {
   return process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
@@ -70,15 +55,29 @@ export async function inviteStaffAction(
       });
       if (error) {
         if (error.code === "email_exists") {
-          // Already a Lobbyee user (maybe in another workspace) — just add
-          // the membership; they sign in as usual.
-          const profile = await dbAdmin.profile.findUnique({
-            where: { email },
+          // Already a Lobbyee user (maybe in another workspace).
+          // Case-insensitive lookup — auth.users may store mixed case.
+          const profile = await dbAdmin.profile.findFirst({
+            where: { email: { equals: email, mode: "insensitive" } },
           });
-          if (!profile) throw new Error("account exists but profile missing");
+          if (!profile) throw new Error("invite send failed");
+          // Squatting guard: if that account never confirmed its email, a
+          // third party may have pre-registered the address. Don't attach
+          // a membership to an account the invitee may not control.
+          const { data: existing } = await admin.auth.admin.getUserById(
+            profile.id,
+          );
+          if (!existing.user?.email_confirmed_at) {
+            results.push({
+              email,
+              status: "failed",
+              note: "an unconfirmed account exists for this email — ask them to finish signing up first",
+            });
+            continue;
+          }
           invitedUserId = profile.id;
         } else {
-          throw new Error(error.message);
+          throw new Error("invite send failed");
         }
       } else {
         invitedUserId = data.user.id;
@@ -98,10 +97,13 @@ export async function inviteStaffAction(
       });
       results.push({ email, status: "invited" });
     } catch (e: unknown) {
-      const msg = (e as Error).message ?? "failed";
+      // Whitelisted notes only — raw error text can leak infrastructure
+      // details into the UI.
+      const msg = (e as Error).message ?? "";
+      console.error("invite failed:", email, msg);
       const note = msg.includes("Unique constraint")
         ? "already a member"
-        : msg.slice(0, 80);
+        : "invite failed — try again";
       results.push({ email, status: "failed", note });
     }
   }

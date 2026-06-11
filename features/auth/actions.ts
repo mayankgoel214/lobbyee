@@ -45,7 +45,14 @@ export async function signUpAction(
       emailRedirectTo: `${siteUrl()}/auth/confirm`,
     },
   });
-  if (error) return { error: error.message };
+  // Generic on purpose — raw Supabase messages ("User already registered")
+  // let an attacker enumerate which emails have accounts.
+  if (error) {
+    console.error("signUp failed:", error.code);
+    return {
+      error: "We couldn't create that account. Try signing in instead.",
+    };
+  }
 
   // If email confirmation is enabled there's no session yet.
   if (!data.session) {
@@ -81,8 +88,11 @@ export async function magicLinkAction(
     email: parsed.data.email,
     options: { emailRedirectTo: `${siteUrl()}/auth/confirm` },
   });
-  if (error) return { error: error.message };
-  return { message: "Magic link sent — check your email." };
+  // Constant response regardless of outcome — prevents email enumeration.
+  if (error) console.error("signInWithOtp failed:", error.code);
+  return {
+    message: "If that email is registered, a magic link is on its way.",
+  };
 }
 
 export async function signOutAction(): Promise<void> {

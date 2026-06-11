@@ -9,7 +9,14 @@ export async function updateSession(request: NextRequest) {
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !key) return response; // unconfigured (CI build) — no-op
+  if (!url || !key) {
+    // Missing auth config must NEVER silently disable route gating in prod.
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("Supabase env missing — refusing to serve unguarded");
+    }
+    console.warn("Supabase env missing — auth gating disabled (dev/CI only)");
+    return response;
+  }
 
   const supabase = createServerClient(url, key, {
     cookies: {

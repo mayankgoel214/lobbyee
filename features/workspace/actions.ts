@@ -49,6 +49,7 @@ export async function createWorkspaceAction(
         slug = `${base}-${Math.random().toString(36).slice(2, 6)}`;
         continue;
       }
+      console.error("workspace create failed:", e);
       return { error: "Could not create the workspace — try again." };
     }
   }

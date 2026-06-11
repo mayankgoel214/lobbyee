@@ -1,6 +1,7 @@
 // Server-side Supabase client (RSC / Server Actions / Route Handlers).
 // Used for AUTH only — session reading, sign-in/out, invites. Data access
 // goes through Prisma (lib/db). See docs/architecture.md §3.
+import "server-only";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { env } from "@/lib/env";

@@ -1,0 +1,46 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Next.js
+.next/
+out/
+build/
+.vercel/
+
+# Environment & secrets — never commit
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Prisma
+prisma/*.db
+prisma/*.db-journal
+
+# Supabase local
+supabase/.temp/
+supabase/.branches/
+
+# Python (voice worker)
+worker/.venv/
+worker/__pycache__/
+**/__pycache__/
+*.pyc
+
+# Testing & coverage
+coverage/
+playwright-report/
+test-results/
+
+# IDE / OS
+.DS_Store
+.idea/
+.vscode/
+*.local
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*

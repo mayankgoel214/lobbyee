@@ -32,6 +32,8 @@ const BLOCKED_METHODS = new Set([
   "$executeRawUnsafe",
   "$transaction",
   "$runCommandRaw",
+  // re-extending would return a fresh, un-Proxied client — a bypass route
+  "$extends",
 ]);
 
 export function dbForRequest(userId: string) {

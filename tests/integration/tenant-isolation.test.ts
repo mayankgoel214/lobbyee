@@ -166,6 +166,11 @@ describe.skipIf(!hasDb)("tenant isolation (RLS)", () => {
     expect(() => db.$transaction([])).toThrow(/bypass tenant isolation/);
   });
 
+  it("$extends is blocked on the scoped client (re-extension would strip the Proxy)", () => {
+    const db = dbForRequest(userA);
+    expect(() => db.$extends({})).toThrow(/bypass tenant isolation/);
+  });
+
   // --- intra-tenant role enforcement (guard trigger + policies) ---
 
   it("a MANAGER cannot promote themselves to owner", async () => {

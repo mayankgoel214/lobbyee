@@ -19,6 +19,7 @@
 //
 // Tenant isolation is proven by tests/integration/tenant-isolation.test.ts,
 // a hard CI gate.
+import "server-only";
 import { dbAdmin } from "./admin";
 
 const UUID_RE =

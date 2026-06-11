@@ -9,8 +9,15 @@
 CREATE OR REPLACE FUNCTION public.handle_new_user() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
+  -- auth.users.email is nullable (phone auth, some OAuth providers);
+  -- profile.email is NOT NULL — a bare NEW.email would make signup itself
+  -- fail. Fall back to a stable synthetic address.
   INSERT INTO public.profile (id, email, full_name)
-  VALUES (NEW.id, NEW.email, NEW.raw_user_meta_data ->> 'full_name')
+  VALUES (
+    NEW.id,
+    COALESCE(NEW.email, NEW.id::text || '@no-email.lobbyee.invalid'),
+    NEW.raw_user_meta_data ->> 'full_name'
+  )
   ON CONFLICT (id) DO NOTHING;
   RETURN NEW;
 END;

@@ -6,7 +6,16 @@ import { z } from "zod";
 
 const schema = z.object({
   // Pooled connection (Supavisor :6543, ?pgbouncer=true) — the app path.
-  DATABASE_URL: z.string().min(1),
+  // pgbouncer=true is required in production: Supavisor transaction mode
+  // does not support prepared statements.
+  DATABASE_URL: z
+    .string()
+    .min(1)
+    .refine(
+      (s) =>
+        process.env.NODE_ENV !== "production" || s.includes("pgbouncer=true"),
+      "DATABASE_URL must use the pooled connection (?pgbouncer=true) in production",
+    ),
   // Direct connection (:5432) — migrations only.
   DIRECT_URL: z.string().min(1).optional(),
 
@@ -20,7 +29,15 @@ const schema = z.object({
 });
 
 function loadEnv(): z.infer<typeof schema> {
-  if (process.env.SKIP_ENV_VALIDATION) {
+  // Escape hatch for builds without secrets (CI quality job). next build
+  // sets NODE_ENV=production, so we detect the build phase explicitly —
+  // at production RUNTIME the skip is refused, so a "set once for a hotfix
+  // and forgotten" SKIP can't disable the safety net where it matters.
+  const isBuildPhase = process.env.NEXT_PHASE === "phase-production-build";
+  if (
+    process.env.SKIP_ENV_VALIDATION &&
+    (isBuildPhase || process.env.NODE_ENV !== "production")
+  ) {
     return process.env as unknown as z.infer<typeof schema>;
   }
   const parsed = schema.safeParse(process.env);

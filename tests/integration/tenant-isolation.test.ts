@@ -22,11 +22,15 @@ describe.skipIf(!hasDb)("tenant isolation (RLS)", () => {
   let dbAdmin: PrismaClient;
   let dbForRequest: (userId: string) => ScopedDb;
 
-  const userA = randomUUID();
-  const userB = randomUUID();
+  const userA = randomUUID(); // owner of A
+  const userB = randomUUID(); // owner of B
+  const userM = randomUUID(); // manager in A
+  const userS = randomUUID(); // staff in A
+  const userR = randomUUID(); // removed member of B
   const wsA = randomUUID();
   const wsB = randomUUID();
   const run = randomUUID().slice(0, 8);
+  const allUsers = [userA, userB, userM, userS, userR];
 
   beforeAll(async () => {
     ({ dbAdmin } = await import("@/lib/db/admin"));
@@ -35,6 +39,9 @@ describe.skipIf(!hasDb)("tenant isolation (RLS)", () => {
       data: [
         { id: userA, email: `a-${run}@test.lobbyee.dev` },
         { id: userB, email: `b-${run}@test.lobbyee.dev` },
+        { id: userM, email: `m-${run}@test.lobbyee.dev` },
+        { id: userS, email: `s-${run}@test.lobbyee.dev` },
+        { id: userR, email: `r-${run}@test.lobbyee.dev` },
       ],
     });
     await dbAdmin.workspace.createMany({
@@ -47,13 +54,16 @@ describe.skipIf(!hasDb)("tenant isolation (RLS)", () => {
       data: [
         { workspaceId: wsA, userId: userA, role: "owner", status: "active" },
         { workspaceId: wsB, userId: userB, role: "owner", status: "active" },
+        { workspaceId: wsA, userId: userM, role: "manager", status: "active" },
+        { workspaceId: wsA, userId: userS, role: "staff", status: "active" },
+        { workspaceId: wsB, userId: userR, role: "staff", status: "removed" },
       ],
     });
   });
 
   afterAll(async () => {
     await dbAdmin.workspace.deleteMany({ where: { id: { in: [wsA, wsB] } } });
-    await dbAdmin.profile.deleteMany({ where: { id: { in: [userA, userB] } } });
+    await dbAdmin.profile.deleteMany({ where: { id: { in: allUsers } } });
     await dbAdmin.$disconnect();
   });
 
@@ -116,14 +126,191 @@ describe.skipIf(!hasDb)("tenant isolation (RLS)", () => {
     await dbAdmin.profile.create({
       data: { id: invitee, email: `c-${run}@test.lobbyee.dev` },
     });
-    const m = await db.membership.create({
-      data: { workspaceId: wsA, userId: invitee, role: "staff" },
-    });
-    expect(m.workspaceId).toBe(wsA);
-    await dbAdmin.profile.delete({ where: { id: invitee } });
+    try {
+      const m = await db.membership.create({
+        data: { workspaceId: wsA, userId: invitee, role: "staff" },
+      });
+      expect(m.workspaceId).toBe(wsA);
+    } finally {
+      await dbAdmin.profile.delete({ where: { id: invitee } }).catch(() => {});
+    }
   });
 
-  it("scoped client refuses an empty user id", () => {
+  it("an admin CAN rename their own workspace (positive policy path)", async () => {
+    const db = dbForRequest(userA);
+    const res = await db.workspace.updateMany({
+      where: { id: wsA },
+      data: { name: "Workspace A renamed" },
+    });
+    expect(res.count).toBe(1);
+    await dbAdmin.workspace.update({
+      where: { id: wsA },
+      data: { name: "Workspace A" },
+    });
+  });
+
+  // --- bypass-route blocking (raw queries / transactions) ---
+
+  it("raw query methods are blocked on the scoped client", () => {
+    const db = dbForRequest(userA);
+    expect(() => db.$queryRawUnsafe("SELECT id FROM workspace")).toThrow(
+      /bypass tenant isolation/,
+    );
+    expect(() => db.$executeRawUnsafe("DELETE FROM workspace")).toThrow();
+    expect(() => db.$queryRaw`SELECT 1`).toThrow();
+    expect(() => db.$executeRaw`SELECT 1`).toThrow();
+  });
+
+  it("$transaction is blocked on the scoped client", () => {
+    const db = dbForRequest(userA);
+    expect(() => db.$transaction([])).toThrow(/bypass tenant isolation/);
+  });
+
+  // --- intra-tenant role enforcement (guard trigger + policies) ---
+
+  it("a MANAGER cannot promote themselves to owner", async () => {
+    const db = dbForRequest(userM);
+    await expect(
+      db.membership.updateMany({
+        where: { workspaceId: wsA, userId: userM },
+        data: { role: "owner" },
+      }),
+    ).rejects.toThrow();
+    const check = await dbAdmin.membership.findUnique({
+      where: { workspaceId_userId: { workspaceId: wsA, userId: userM } },
+    });
+    expect(check?.role).toBe("manager");
+  });
+
+  it("a MANAGER cannot insert a manager/owner-role membership", async () => {
+    const db = dbForRequest(userM);
+    const invitee = randomUUID();
+    await dbAdmin.profile.create({
+      data: { id: invitee, email: `d-${run}@test.lobbyee.dev` },
+    });
+    try {
+      await expect(
+        db.membership.create({
+          data: { workspaceId: wsA, userId: invitee, role: "manager" },
+        }),
+      ).rejects.toThrow();
+    } finally {
+      await dbAdmin.profile.delete({ where: { id: invitee } }).catch(() => {});
+    }
+  });
+
+  it("a STAFF member cannot insert memberships in their own workspace", async () => {
+    const db = dbForRequest(userS);
+    await expect(
+      db.membership.create({
+        data: { workspaceId: wsA, userId: randomUUID(), role: "staff" },
+      }),
+    ).rejects.toThrow();
+  });
+
+  it("a STAFF member's role-escalation update affects zero rows or throws", async () => {
+    const db = dbForRequest(userS);
+    const attempt = db.membership.updateMany({
+      where: { workspaceId: wsA, userId: userS },
+      data: { role: "owner" },
+    });
+    // Either RLS silently matches 0 rows or the guard trigger throws —
+    // both acceptable; the role must not change.
+    await attempt.then(
+      (res) => expect(res.count).toBe(0),
+      () => {},
+    );
+    const check = await dbAdmin.membership.findUnique({
+      where: { workspaceId_userId: { workspaceId: wsA, userId: userS } },
+    });
+    expect(check?.role).toBe("staff");
+  });
+
+  // --- cross-tenant row movement & deletion ---
+
+  it("A's owner cannot move a membership row into workspace B", async () => {
+    await expect(
+      dbForRequest(userA).membership.updateMany({
+        where: { workspaceId: wsA, userId: userS },
+        data: { workspaceId: wsB },
+      }),
+    ).rejects.toThrow();
+    const check = await dbAdmin.membership.findUnique({
+      where: { workspaceId_userId: { workspaceId: wsA, userId: userS } },
+    });
+    expect(check).not.toBeNull();
+  });
+
+  it("A cannot delete B's memberships (silent zero)", async () => {
+    const res = await dbForRequest(userA).membership.deleteMany({
+      where: { workspaceId: wsB },
+    });
+    expect(res.count).toBe(0);
+  });
+
+  // --- membership status gating ---
+
+  it("a REMOVED member of B sees none of B", async () => {
+    const db = dbForRequest(userR);
+    const ws = await db.workspace.findUnique({ where: { id: wsB } });
+    expect(ws).toBeNull();
+    const list = await db.workspace.findMany();
+    expect(list.some((w) => w.id === wsB)).toBe(false);
+  });
+
+  // --- profile protection ---
+
+  it("A's update against B's profile affects zero rows", async () => {
+    const res = await dbForRequest(userA).profile.updateMany({
+      where: { id: userB },
+      data: { fullName: "pwned" },
+    });
+    expect(res.count).toBe(0);
+  });
+
+  it("a user CAN update their own full_name but NOT their email", async () => {
+    const db = dbForRequest(userA);
+    const ok = await db.profile.updateMany({
+      where: { id: userA },
+      data: { fullName: "User A" },
+    });
+    expect(ok.count).toBe(1);
+    await expect(
+      db.profile.updateMany({
+        where: { id: userA },
+        data: { email: `spoofed-${run}@test.lobbyee.dev` },
+      }),
+    ).rejects.toThrow();
+  });
+
+  // --- service-path-only operations ---
+
+  it("workspace creation via the scoped client is denied", async () => {
+    await expect(
+      dbForRequest(userA).workspace.create({
+        data: { slug: `ws-x-${run}`, name: "Rogue" },
+      }),
+    ).rejects.toThrow();
+  });
+
+  // --- pooling / concurrency: the load-bearing SET LOCAL assumption ---
+
+  it("interleaved scoped clients never see each other's rows (25 rounds)", async () => {
+    for (let i = 0; i < 25; i++) {
+      const [aRows, bRows] = await Promise.all([
+        dbForRequest(userA).workspace.findMany(),
+        dbForRequest(userB).workspace.findMany(),
+      ]);
+      expect(aRows.some((w) => w.id === wsB)).toBe(false);
+      expect(bRows.some((w) => w.id === wsA)).toBe(false);
+    }
+  });
+
+  // --- input validation ---
+
+  it("scoped client refuses empty and non-uuid user ids", () => {
     expect(() => dbForRequest("")).toThrow();
+    expect(() => dbForRequest("not-a-uuid")).toThrow();
+    expect(() => dbForRequest("abc'; DROP TABLE membership; --")).toThrow();
   });
 });

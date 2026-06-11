@@ -92,14 +92,17 @@ CREATE OR REPLACE FUNCTION app.current_workspace_ids() RETURNS uuid[]
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
   SELECT COALESCE(array_agg(workspace_id), '{}')
   FROM membership
-  WHERE user_id = auth.uid() AND status = 'active'
+  WHERE auth.uid() IS NOT NULL
+    AND user_id = auth.uid()
+    AND status = 'active'
 $$;
 
 CREATE OR REPLACE FUNCTION app.is_workspace_admin(ws uuid) RETURNS boolean
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
   SELECT EXISTS (
     SELECT 1 FROM membership
-    WHERE workspace_id = ws
+    WHERE auth.uid() IS NOT NULL
+      AND workspace_id = ws
       AND user_id = auth.uid()
       AND role::text IN ('owner', 'manager')
       AND status = 'active'
@@ -145,10 +148,60 @@ CREATE POLICY membership_update ON "membership" FOR UPDATE
 CREATE POLICY membership_delete ON "membership" FOR DELETE
   USING (app.is_workspace_admin(workspace_id));
 
--- Grants for the request-path role. (Row visibility is governed by the
--- policies above; grants only open the table-level door.)
+-- Grants for the request-path role — deliberately least-privilege:
+--   workspace:  creation/deletion are service-path-only operations
+--   profile:    rows are created by the auth trigger; users may edit
+--               full_name only — email mirrors auth.users (source of truth)
+--   membership: managed by workspace admins, governed by RLS policies plus
+--               the guard trigger below
 GRANT USAGE ON SCHEMA public TO authenticated;
 GRANT USAGE ON SCHEMA app TO authenticated;
-GRANT SELECT, INSERT, UPDATE, DELETE ON "workspace", "profile", "membership" TO authenticated;
+GRANT SELECT, UPDATE ON "workspace" TO authenticated;
+GRANT SELECT ON "profile" TO authenticated;
+GRANT UPDATE ("full_name") ON "profile" TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON "membership" TO authenticated;
 GRANT EXECUTE ON FUNCTION app.current_workspace_ids() TO authenticated;
 GRANT EXECUTE ON FUNCTION app.is_workspace_admin(uuid) TO authenticated;
+
+-- Guard trigger: column-aware rules that RLS policies cannot express.
+--   (1) membership rows never move between workspaces
+--   (2) only the workspace OWNER changes roles — managers run invites and
+--       status changes, but cannot escalate themselves (or anyone)
+--   (3) non-owners can only INSERT staff-role memberships
+-- The service path (dbAdmin — no request.jwt.claims) is exempt: it is the
+-- deliberate admin bypass used by workspace bootstrap and webhooks.
+CREATE OR REPLACE FUNCTION app.guard_membership_write() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  claims text := current_setting('request.jwt.claims', true);
+  is_owner boolean;
+BEGIN
+  IF claims IS NULL OR claims = '' THEN
+    RETURN NEW; -- service path
+  END IF;
+  is_owner := EXISTS (
+    SELECT 1 FROM membership
+    WHERE workspace_id = COALESCE(NEW.workspace_id, OLD.workspace_id)
+      AND user_id = auth.uid()
+      AND role = 'owner'
+      AND status = 'active'
+  );
+  IF TG_OP = 'UPDATE' THEN
+    IF NEW.workspace_id IS DISTINCT FROM OLD.workspace_id THEN
+      RAISE EXCEPTION 'membership rows cannot move between workspaces';
+    END IF;
+    IF NEW.role IS DISTINCT FROM OLD.role AND NOT is_owner THEN
+      RAISE EXCEPTION 'only the workspace owner can change member roles';
+    END IF;
+  ELSIF TG_OP = 'INSERT' THEN
+    IF NEW.role <> 'staff' AND NOT is_owner THEN
+      RAISE EXCEPTION 'only the workspace owner can grant manager or owner roles';
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER guard_membership_write
+  BEFORE INSERT OR UPDATE ON "membership"
+  FOR EACH ROW EXECUTE FUNCTION app.guard_membership_write();

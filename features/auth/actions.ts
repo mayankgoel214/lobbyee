@@ -45,13 +45,12 @@ export async function signUpAction(
       emailRedirectTo: `${siteUrl()}/auth/confirm`,
     },
   });
-  // Generic on purpose — raw Supabase messages ("User already registered")
-  // let an attacker enumerate which emails have accounts.
+  // Enumeration-safe: the error branch returns the SAME copy as the
+  // confirmation branch, so the response never reveals whether an account
+  // already exists. Real failures are logged server-side.
   if (error) {
     console.error("signUp failed:", error.code);
-    return {
-      error: "We couldn't create that account. Try signing in instead.",
-    };
+    return { message: "Check your email for a confirmation link." };
   }
 
   // If email confirmation is enabled there's no session yet.

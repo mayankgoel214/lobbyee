@@ -68,10 +68,12 @@ export async function inviteStaffAction(
             profile.id,
           );
           if (!existing.user?.email_confirmed_at) {
+            // Note kept generic — naming the reason would reveal that the
+            // address is pre-registered.
             results.push({
               email,
               status: "failed",
-              note: "an unconfirmed account exists for this email — ask them to finish signing up first",
+              note: "invite failed — try again",
             });
             continue;
           }

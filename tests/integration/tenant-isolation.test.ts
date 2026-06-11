@@ -300,7 +300,11 @@ describe.skipIf(!hasDb)("tenant isolation (RLS)", () => {
 
   // --- pooling / concurrency: the load-bearing SET LOCAL assumption ---
 
-  it("interleaved scoped clients never see each other's rows (25 rounds)", async () => {
+  // 60s timeout: 25 rounds of real transactions are instant on CI's localhost
+  // Postgres but take ~10-15s against the live pooler over the internet.
+  it("interleaved scoped clients never see each other's rows (25 rounds)", {
+    timeout: 60_000,
+  }, async () => {
     for (let i = 0; i < 25; i++) {
       const [aRows, bRows] = await Promise.all([
         dbForRequest(userA).workspace.findMany(),

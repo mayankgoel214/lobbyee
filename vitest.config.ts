@@ -5,7 +5,7 @@ export default defineConfig({
   test: {
     include: ["tests/**/*.test.ts"],
     environment: "node",
-    setupFiles: ["dotenv/config"],
+    setupFiles: ["./tests/setup-env.ts"],
     // Tenant-isolation tests share seeded rows; keep file-level parallelism off.
     fileParallelism: false,
   },

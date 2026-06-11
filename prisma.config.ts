@@ -1,8 +1,12 @@
 // Prisma 7 config — connection URLs live here, not in schema.prisma.
 // DATABASE_URL: pooled (Supavisor :6543, pgbouncer) for the app.
 // DIRECT_URL:   direct (:5432) for migrations.
-import "dotenv/config";
+import { config } from "dotenv";
 import { defineConfig, env } from "prisma/config";
+
+// Next.js convention keeps secrets in .env.local; the Prisma CLI only
+// auto-loads .env. Missing files are skipped silently (CI has neither).
+config({ path: [".env.local", ".env"] });
 
 export default defineConfig({
   schema: "prisma/schema.prisma",

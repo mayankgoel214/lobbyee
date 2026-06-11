@@ -1,0 +1,72 @@
+// Lobbyee — Phase 0 schema: multi-tenant foundation.
+// Tenancy model: every tenant-scoped table carries workspace_id; Postgres RLS
+// is the source of truth (policies live in the migration SQL alongside these
+// tables). See docs/architecture.md §3–4.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  owner
+  manager
+  staff
+}
+
+enum MemberStatus {
+  pending
+  active
+  removed
+}
+
+enum Plan {
+  trial
+  starter
+}
+
+model Workspace {
+  id                String       @id @default(uuid()) @db.Uuid
+  slug              String       @unique
+  name              String
+  industry          String?
+  plan              Plan         @default(trial)
+  sessionCapMonthly Int          @default(50) @map("session_cap_monthly")
+  stripeCustomerId  String?      @unique @map("stripe_customer_id")
+  createdAt         DateTime     @default(now()) @map("created_at")
+  memberships       Membership[]
+
+  @@map("workspace")
+}
+
+// Mirrors auth.users (Supabase). Created by a DB trigger on signup —
+// see supabase/migrations/0001_profile_trigger.sql.
+model Profile {
+  id          String       @id @db.Uuid
+  email       String       @unique
+  fullName    String?      @map("full_name")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  memberships Membership[]
+
+  @@map("profile")
+}
+
+model Membership {
+  id          String       @id @default(uuid()) @db.Uuid
+  workspaceId String       @map("workspace_id") @db.Uuid
+  userId      String       @map("user_id") @db.Uuid
+  role        Role
+  status      MemberStatus @default(pending)
+  invitedBy   String?      @map("invited_by") @db.Uuid
+  createdAt   DateTime     @default(now()) @map("created_at")
+  workspace   Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  profile     Profile      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId])
+  @@index([userId])
+  @@map("membership")
+}

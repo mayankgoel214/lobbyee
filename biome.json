@@ -5,7 +5,8 @@
       "!lib/generated",
       "!.next",
       "!node_modules",
-      "!pnpm-lock.yaml"
+      "!pnpm-lock.yaml",
+      "!graphify-out"
     ]
   },
   "formatter": {

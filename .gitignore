@@ -49,3 +49,9 @@ pnpm-debug.log*
 lib/generated/
 *.tsbuildinfo
 .vercel
+
+# graphify knowledge-graph artifacts (local only)
+graphify-out/
+
+# Playwright MCP session artifacts
+.playwright-mcp/

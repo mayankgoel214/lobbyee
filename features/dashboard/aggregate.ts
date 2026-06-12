@@ -3,7 +3,7 @@
 // client. Workspaces are small (tens of staff, hundreds of sessions/month),
 // so in-process aggregation beats raw SQL here — and raw SQL is deliberately
 // unavailable on the scoped client anyway.
-import type { CompetencyKey } from "@/prompts/evaluator";
+import { COMPETENCIES, type CompetencyKey } from "@/prompts/evaluator";
 
 export const DAYS_30 = 30 * 24 * 60 * 60 * 1000;
 const DAYS_7 = 7 * 24 * 60 * 60 * 1000;
@@ -23,13 +23,6 @@ export type StaffCompetency = {
    *  null when either week has no evaluations — no arrow shown. */
   trends: Record<CompetencyKey, number | null>;
 };
-
-const COMPETENCIES: CompetencyKey[] = [
-  "empathy",
-  "clarity",
-  "problem_solving",
-  "professionalism",
-];
 
 function mean(values: number[]): number | null {
   if (values.length === 0) return null;
@@ -100,6 +93,20 @@ export type MissedSummary = {
   total: number;
 };
 
+/** Headline math from per-competency counts. Ties go to the first-listed
+ *  competency in COMPETENCIES order (strict > keeps the earlier hit). */
+export function summarizeMissedCounts(
+  byCompetency: Record<CompetencyKey, number>,
+): MissedSummary {
+  let total = 0;
+  let weakest: CompetencyKey | null = null;
+  for (const c of COMPETENCIES) {
+    total += byCompetency[c];
+    if (byCompetency[c] > (weakest ? byCompetency[weakest] : 0)) weakest = c;
+  }
+  return { byCompetency, weakest, total };
+}
+
 /** Which competency the team misses most — the §6f "top missed" headline.
  *  (Semantic clustering of rationales is v2; v1 counts by competency and
  *  surfaces the most recent examples, which the page lists separately.) */
@@ -114,15 +121,9 @@ export function summarizeMissed(
     problem_solving: 0,
     professionalism: 0,
   } as Record<CompetencyKey, number>;
-  let total = 0;
   for (const item of items) {
     if (item.createdAt.getTime() < windowStart) continue;
     byCompetency[item.competency] += 1;
-    total += 1;
   }
-  let weakest: CompetencyKey | null = null;
-  for (const c of COMPETENCIES) {
-    if (byCompetency[c] > (weakest ? byCompetency[weakest] : 0)) weakest = c;
-  }
-  return { byCompetency, weakest, total };
+  return summarizeMissedCounts(byCompetency);
 }

@@ -9,6 +9,12 @@ const W = 320;
 const H = 72;
 const PAD = 6;
 
+// Write paths always clamp to 0-100, but a stored snapshot is still JSON —
+// clamp again on read so a corrupted value can't bend the chart off-canvas.
+function clamp(n: number): number {
+  return Math.max(0, Math.min(100, Math.round(n)));
+}
+
 function points(values: number[]): string {
   const n = values.length;
   return values
@@ -22,8 +28,8 @@ function points(values: number[]): string {
 
 export function MoodTimeline({ snapshots }: { snapshots: MoodVector[] }) {
   if (snapshots.length < 2) return null;
-  const frustration = snapshots.map((s) => s.frustration);
-  const trust = snapshots.map((s) => s.trust);
+  const frustration = snapshots.map((s) => clamp(s.frustration));
+  const trust = snapshots.map((s) => clamp(s.trust));
 
   return (
     <section
@@ -47,7 +53,7 @@ export function MoodTimeline({ snapshots }: { snapshots: MoodVector[] }) {
         viewBox={`0 0 ${W} ${H}`}
         className="h-auto w-full"
         role="img"
-        aria-label={`Frustration moved from ${frustration[0]} to ${frustration[frustration.length - 1]} of 100; trust from ${trust[0]} to ${trust[trust.length - 1]}.`}
+        aria-label={`Frustration moved from ${frustration.at(0) ?? 0} to ${frustration.at(-1) ?? 0} of 100; trust from ${trust.at(0) ?? 0} to ${trust.at(-1) ?? 0}.`}
       >
         <line
           x1={PAD}

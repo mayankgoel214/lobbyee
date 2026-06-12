@@ -4,18 +4,15 @@ import {
   DAYS_30,
   type EvalRow,
   rollingCompetency,
-  summarizeMissed,
+  summarizeMissedCounts,
 } from "@/features/dashboard/aggregate";
 import { isAdmin, requireMembership } from "@/lib/auth/session";
 import { dbForRequest } from "@/lib/db/scoped";
-import { COMPETENCY_LABELS, type CompetencyKey } from "@/prompts/evaluator";
-
-const COMPETENCY_ORDER: CompetencyKey[] = [
-  "empathy",
-  "clarity",
-  "problem_solving",
-  "professionalism",
-];
+import {
+  COMPETENCIES,
+  COMPETENCY_LABELS,
+  type CompetencyKey,
+} from "@/prompts/evaluator";
 
 function Trend({ delta }: { delta: number | null }) {
   if (delta === null || Math.abs(delta) < 0.3) return null;
@@ -52,12 +49,16 @@ export default async function DashboardPage({
   // Scoped reads — RLS gives workspace admins read access to the whole
   // workspace's sessions, evaluations and evidence; aggregation happens
   // in-process (docs/architecture.md §6f).
-  const [evaluations, missedItems, members, sessionsThisWindow] =
+  const [evaluations, recentMissed, missedCounts, members, sessionsThisWindow] =
     await Promise.all([
       db.evaluation.findMany({
         where: { workspaceId: workspace.id, createdAt: { gte: windowStart } },
         include: { session: { select: { userId: true } } },
+        // Defensive bound — far above any v1 workspace, prevents a runaway
+        // tenant from hot-loading the page server (safety-check finding).
+        take: 2000,
       }),
+      // The visible list: 8 most recent missed moments.
       db.evaluationEvidence.findMany({
         where: {
           kind: "missed_opportunity",
@@ -66,11 +67,22 @@ export default async function DashboardPage({
             createdAt: { gte: windowStart },
           },
         },
-        include: {
-          evaluation: { select: { sessionId: true, createdAt: true } },
-        },
+        include: { evaluation: { select: { sessionId: true } } },
         orderBy: { id: "desc" },
-        take: 50,
+        take: 8,
+      }),
+      // The headline counts over the FULL 30d window — a capped list would
+      // undercount busy workspaces (safety-check finding).
+      db.evaluationEvidence.groupBy({
+        by: ["competency"],
+        where: {
+          kind: "missed_opportunity",
+          evaluation: {
+            workspaceId: workspace.id,
+            createdAt: { gte: windowStart },
+          },
+        },
+        _count: { _all: true },
       }),
       db.membership.findMany({
         where: { workspaceId: workspace.id, status: "active" },
@@ -96,14 +108,16 @@ export default async function DashboardPage({
     },
   }));
   const staff = rollingCompetency(rows, now);
-  const missed = summarizeMissed(
-    missedItems.map((m) => ({
-      competency: m.competency as CompetencyKey,
-      createdAt: m.evaluation.createdAt,
-    })),
-    now,
-  );
-  const recentMissed = missedItems.slice(0, 8);
+  const countsByCompetency = {
+    empathy: 0,
+    clarity: 0,
+    problem_solving: 0,
+    professionalism: 0,
+  } as Record<CompetencyKey, number>;
+  for (const g of missedCounts) {
+    countsByCompetency[g.competency as CompetencyKey] = g._count._all;
+  }
+  const missed = summarizeMissedCounts(countsByCompetency);
 
   return (
     <main className="mx-auto max-w-3xl p-6">
@@ -112,7 +126,7 @@ export default async function DashboardPage({
         <p className="text-sm text-neutral-500">
           Last 30 days · {sessionsThisWindow} session
           {sessionsThisWindow === 1 ? "" : "s"} · {evaluations.length} evaluated
-          · {staff.length} staff trained
+          · {staff.length} staff evaluated
         </p>
       </div>
 
@@ -139,7 +153,7 @@ export default async function DashboardPage({
               <tr className="border-b border-neutral-100 text-left text-xs text-neutral-500">
                 <th className="px-4 py-2.5 font-medium">Staff</th>
                 <th className="px-2 py-2.5 font-medium text-right">Sessions</th>
-                {COMPETENCY_ORDER.map((c) => (
+                {COMPETENCIES.map((c) => (
                   <th key={c} className="px-2 py-2.5 font-medium text-right">
                     {COMPETENCY_LABELS[c]}
                   </th>
@@ -163,7 +177,7 @@ export default async function DashboardPage({
                   <td className="px-2 py-2.5 text-right text-neutral-500">
                     {s.sessionCount}
                   </td>
-                  {COMPETENCY_ORDER.map((c) => (
+                  {COMPETENCIES.map((c) => (
                     <td key={c} className="px-2 py-2.5 text-right tabular-nums">
                       {s.means[c].toFixed(1)}
                       <Trend delta={s.trends[c]} />

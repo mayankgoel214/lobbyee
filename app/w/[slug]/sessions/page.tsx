@@ -24,12 +24,15 @@ const STATUS_LABEL: Record<string, string> = {
   errored: "didn't start",
 };
 
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export default async function SessionsPage({
   params,
   searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ u?: string }>;
+  searchParams: Promise<{ u?: string | string[] }>;
 }) {
   const { slug } = await params;
   const { u } = await searchParams;
@@ -37,13 +40,17 @@ export default async function SessionsPage({
   const admin = isAdmin(membership.role);
 
   // Admins may view a specific staff member's history (dashboard drill-down).
-  // RLS would return nothing for a non-admin's foreign query anyway — the
-  // explicit check just keeps the UI honest.
-  const targetUserId = admin && u ? u : user.id;
+  // ?u= is user-controlled URL input: validate it's a UUID (a junk value
+  // would otherwise 500 at the Postgres uuid cast — safety-check finding)
+  // and fall back to the viewer's own history. RLS would return nothing for
+  // a non-admin's foreign query anyway — the explicit check keeps the UI
+  // honest.
+  const rawU = Array.isArray(u) ? u[0] : u;
+  const targetUserId = admin && rawU && UUID_RE.test(rawU) ? rawU : user.id;
   const viewingOther = targetUserId !== user.id;
 
   const db = dbForRequest(user.id);
-  const [sessions, targetProfile] = await Promise.all([
+  const [sessions, targetMembership] = await Promise.all([
     db.session.findMany({
       where: { workspaceId: workspace.id, userId: targetUserId },
       orderBy: { startedAt: "desc" },
@@ -61,16 +68,26 @@ export default async function SessionsPage({
         },
       },
     }),
+    // Resolve the page title through THIS workspace's membership — a
+    // cross-workspace userId must not surface a name here even though
+    // profile RLS would let a shared-workspace admin read it
+    // (safety-check finding).
     viewingOther
-      ? db.profile.findUnique({
-          where: { id: targetUserId },
-          select: { fullName: true, email: true },
+      ? db.membership.findFirst({
+          where: { workspaceId: workspace.id, userId: targetUserId },
+          include: {
+            profile: { select: { fullName: true, email: true } },
+          },
         })
       : Promise.resolve(null),
   ]);
 
   const title = viewingOther
-    ? `${targetProfile?.fullName ?? targetProfile?.email ?? "Staff"} — sessions`
+    ? `${
+        targetMembership?.profile.fullName ??
+        targetMembership?.profile.email ??
+        "Staff"
+      } — sessions`
     : "My sessions";
 
   return (

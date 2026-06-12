@@ -28,11 +28,19 @@ export async function generateGuestReply(input: {
 }): Promise<string> {
   const system = renderGuestSystem(input.persona, input.scenario);
 
+  const mapped = input.history.map((t) => ({
+    role: t.role === "guest" ? ("model" as const) : ("user" as const),
+    parts: [{ text: t.text }],
+  }));
+
   const contents = [
-    ...input.history.map((t) => ({
-      role: t.role === "guest" ? ("model" as const) : ("user" as const),
-      parts: [{ text: t.text }],
-    })),
+    // Gemini requires the FIRST content turn to be role "user". After the
+    // opening, stored history begins with the guest's first line — so
+    // re-prepend the cue that actually elicited it (matches reality).
+    ...(mapped[0]?.role === "model"
+      ? [{ role: "user" as const, parts: [{ text: OPENING_CUE }] }]
+      : []),
+    ...mapped,
     {
       role: "user" as const,
       parts: [{ text: `${moodNote(input.mood)}\n\n${input.userText}` }],
@@ -49,7 +57,16 @@ export async function generateGuestReply(input: {
   });
 
   const text = response.text?.trim();
-  if (!text) throw new Error("guest model returned no text");
+  if (!text) {
+    // Distinguish safety blocks / token exhaustion from outages in logs.
+    console.error(
+      "guest reply empty — finishReason:",
+      response.candidates?.[0]?.finishReason,
+      "blockReason:",
+      response.promptFeedback?.blockReason,
+    );
+    throw new Error("guest model returned no text");
+  }
   return text;
 }
 

@@ -3,6 +3,7 @@
 // with a constrained JSON response; the guest model never invents its own
 // mood.
 import "server-only";
+import { Type } from "@google/genai";
 import { z } from "zod";
 import {
   MOOD_UPDATE_VERSION,
@@ -55,13 +56,15 @@ export async function updateMood(input: {
       config: {
         maxOutputTokens: 256,
         responseMimeType: "application/json",
+        // NOTE: the SDK's OpenAPI Schema uses the UPPERCASE Type enum —
+        // lowercase JSON-schema strings are silently mis-handled.
         responseSchema: {
-          type: "object",
+          type: Type.OBJECT,
           properties: {
-            frustration: { type: "number" },
-            trust: { type: "number" },
-            patience: { type: "number" },
-            satisfaction: { type: "number" },
+            frustration: { type: Type.NUMBER },
+            trust: { type: Type.NUMBER },
+            patience: { type: Type.NUMBER },
+            satisfaction: { type: Type.NUMBER },
           },
           required: ["frustration", "trust", "patience", "satisfaction"],
         },

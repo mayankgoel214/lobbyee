@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { afterAuthDestination } from "@/lib/auth/session";
+import { siteUrl } from "@/lib/site-url";
 import { supabaseServer } from "@/lib/supabase/server";
 
 export type AuthFormState = { error?: string; message?: string };
@@ -21,10 +22,6 @@ const signInSchema = z.object({
 const emailSchema = z.object({
   email: z.string().trim().email("Enter a valid email"),
 });
-
-function siteUrl(): string {
-  return process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
-}
 
 export async function signUpAction(
   _prev: AuthFormState,

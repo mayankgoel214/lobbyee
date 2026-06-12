@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { isAdmin, requireMembership, requireUser } from "@/lib/auth/session";
 import { dbAdmin } from "@/lib/db/admin";
 import { dbForRequest } from "@/lib/db/scoped";
+import { siteUrl } from "@/lib/site-url";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { inviteSchema } from "./invite-schema";
 
@@ -15,10 +16,6 @@ export type InviteFormState = {
     note?: string;
   }>;
 };
-
-function siteUrl(): string {
-  return process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
-}
 
 export async function inviteStaffAction(
   _prev: InviteFormState,

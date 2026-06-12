@@ -18,4 +18,4 @@ Staff practice the hard guest conversations — a disputed charge, a jet-lagged 
 
 ## Stack
 
-Next.js 15 (App Router) · TypeScript strict · PostgreSQL (Supabase) with Row-Level Security · Prisma · Supabase Auth · Pipecat voice worker (Deepgram STT / Cartesia TTS) · Anthropic Claude (guest simulation, mood tracking, evaluation) · Stripe · Vercel · GitHub Actions
+Next.js 15 (App Router) · TypeScript strict · PostgreSQL (Supabase) with Row-Level Security · Prisma · Supabase Auth · Pipecat voice worker (Deepgram STT / Cartesia TTS) · Google Gemini (guest simulation, mood tracking, evaluation) · Stripe · Vercel · GitHub Actions

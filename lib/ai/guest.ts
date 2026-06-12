@@ -1,15 +1,15 @@
 // The guest reply — one turn of the conversation loop
 // (docs/architecture.md §5b). Mood is injected into the USER message, never
-// the system block, so the system stays byte-identical across turns
-// (cacheable; note Sonnet 4.6's minimum cacheable prefix is ~2048 tokens —
-// short personas won't cache yet, which is fine and costs nothing extra).
+// the system instruction, so the system stays byte-identical across turns
+// (Gemini applies implicit context caching automatically when prefixes
+// repeat — same reason, no markers needed).
 import "server-only";
 import {
   type PersonaForPrompt,
   renderGuestSystem,
   type ScenarioForPrompt,
 } from "@/prompts/guest-system";
-import { anthropic } from "./client";
+import { gemini } from "./client";
 import { MODELS } from "./models";
 import type { MoodVector } from "./mood";
 
@@ -28,35 +28,45 @@ export async function generateGuestReply(input: {
 }): Promise<string> {
   const system = renderGuestSystem(input.persona, input.scenario);
 
-  const messages = [
-    ...input.history.map((t) => ({
-      role: t.role === "guest" ? ("assistant" as const) : ("user" as const),
-      content: t.text,
-    })),
+  const mapped = input.history.map((t) => ({
+    role: t.role === "guest" ? ("model" as const) : ("user" as const),
+    parts: [{ text: t.text }],
+  }));
+
+  const contents = [
+    // Gemini requires the FIRST content turn to be role "user". After the
+    // opening, stored history begins with the guest's first line — so
+    // re-prepend the cue that actually elicited it (matches reality).
+    ...(mapped[0]?.role === "model"
+      ? [{ role: "user" as const, parts: [{ text: OPENING_CUE }] }]
+      : []),
+    ...mapped,
     {
       role: "user" as const,
-      content: `${moodNote(input.mood)}\n\n${input.userText}`,
+      parts: [{ text: `${moodNote(input.mood)}\n\n${input.userText}` }],
     },
   ];
 
-  const response = await anthropic().messages.create({
+  const response = await gemini().models.generateContent({
     model: MODELS.guest,
-    max_tokens: 1024,
-    // Conversational latency matters more than depth here; Sonnet 4.6
-    // defaults to high effort, which is wrong for a 2-sentence guest reply.
-    output_config: { effort: "low" },
-    system: [
-      { type: "text", text: system, cache_control: { type: "ephemeral" } },
-    ],
-    messages,
+    contents,
+    config: {
+      systemInstruction: system,
+      maxOutputTokens: 1024,
+    },
   });
 
-  const text = response.content
-    .filter((b) => b.type === "text")
-    .map((b) => b.text)
-    .join("")
-    .trim();
-  if (!text) throw new Error("guest model returned no text");
+  const text = response.text?.trim();
+  if (!text) {
+    // Distinguish safety blocks / token exhaustion from outages in logs.
+    console.error(
+      "guest reply empty — finishReason:",
+      response.candidates?.[0]?.finishReason,
+      "blockReason:",
+      response.promptFeedback?.blockReason,
+    );
+    throw new Error("guest model returned no text");
+  }
   return text;
 }
 

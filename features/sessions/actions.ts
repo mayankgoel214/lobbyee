@@ -97,6 +97,11 @@ export async function startSessionAction(
     ? persona.baselineMood
     : { frustration: 50, trust: 50, patience: 50, satisfaction: 50 };
 
+  // Resolve the prompt version BEFORE claiming a cap slot — it validates DB
+  // connectivity cheaply, and anything that throws after the claim would
+  // leak a slot (safety-check finding: this used to run after the claim).
+  const pvId = await promptVersionId();
+
   // Workspace session cap (architecture §7b) — one atomic conditional
   // increment, claimed BEFORE any model spend. Released on every failure
   // path below so a trainee never pays for our errors.
@@ -114,10 +119,6 @@ export async function startSessionAction(
     };
   }
 
-  // Resolve the prompt version BEFORE paying for a model call — it also
-  // validates DB connectivity cheaply.
-  const pvId = await promptVersionId();
-
   // The guest speaks first.
   let opening: string;
   try {
@@ -130,7 +131,12 @@ export async function startSessionAction(
     });
   } catch (e) {
     console.error("session opening failed:", e);
-    await releaseSessionSlot(workspace.id).catch(() => {});
+    await releaseSessionSlot(workspace.id).catch((releaseError) =>
+      console.error(
+        `cap release failed for workspace ${workspace.id} — counter drifts +1:`,
+        releaseError,
+      ),
+    );
     return {
       error:
         "Couldn't reach the guest simulator. Check that the AI key is configured, then try again.",
@@ -151,7 +157,12 @@ export async function startSessionAction(
     });
   } catch (e) {
     console.error("session create failed:", e);
-    await releaseSessionSlot(workspace.id).catch(() => {});
+    await releaseSessionSlot(workspace.id).catch((releaseError) =>
+      console.error(
+        `cap release failed for workspace ${workspace.id} — counter drifts +1:`,
+        releaseError,
+      ),
+    );
     return { error: "Couldn't start the session — try again." };
   }
   try {
@@ -176,7 +187,12 @@ export async function startSessionAction(
       })
       .catch(() => {});
     // An errored session shouldn't count against the workspace cap.
-    await releaseSessionSlot(workspace.id).catch(() => {});
+    await releaseSessionSlot(workspace.id).catch((releaseError) =>
+      console.error(
+        `cap release failed for workspace ${workspace.id} — counter drifts +1:`,
+        releaseError,
+      ),
+    );
     return { error: "Couldn't start the session — try again." };
   }
 

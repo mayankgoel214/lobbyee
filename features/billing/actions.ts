@@ -27,10 +27,21 @@ async function ensureStripeCustomer(workspace: {
     name: workspace.name,
     metadata: { workspaceId: workspace.id },
   });
-  await dbAdmin.workspace.update({
-    where: { id: workspace.id },
+  // Atomic claim: only the first concurrent "Subscribe" click persists its
+  // customer; the loser adopts the winner's id (its own Stripe customer
+  // stays an orphan with no subscription — harmless). A plain update here
+  // would be last-write-wins and could strand the checkout's customer.
+  const claimed = await dbAdmin.workspace.updateMany({
+    where: { id: workspace.id, stripeCustomerId: null },
     data: { stripeCustomerId: customer.id },
   });
+  if (claimed.count === 0) {
+    const ws = await dbAdmin.workspace.findUnique({
+      where: { id: workspace.id },
+      select: { stripeCustomerId: true },
+    });
+    if (ws?.stripeCustomerId) return ws.stripeCustomerId;
+  }
   return customer.id;
 }
 

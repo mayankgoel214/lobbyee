@@ -33,25 +33,42 @@ export async function POST(request: Request) {
     return new NextResponse(null, { status: 400 });
   }
 
-  // Idempotency: claim the event id; a replay conflicts and is skipped.
-  const claimed = await dbAdmin.stripeEvent.createMany({
-    data: [{ id: event.id, type: event.type }],
-    skipDuplicates: true,
+  // Idempotency: APPLY first, RECORD after (safety-check finding). The
+  // ledger row is only written once the handler fully succeeded, so a crash
+  // or failure mid-handler leaves no claim behind — Stripe's retry simply
+  // re-applies (every handler is upsert-shaped and converges). The check
+  // below is a fast skip for replays; two deliveries racing past it just
+  // both run the idempotent handler — harmless by design.
+  const seen = await dbAdmin.stripeEvent.findUnique({
+    where: { id: event.id },
+    select: { id: true },
   });
-  if (claimed.count === 0) {
+  if (seen) {
     return NextResponse.json({ received: true, duplicate: true });
   }
 
   try {
     await handleStripeEvent(event);
   } catch (e) {
-    // Release the ledger claim so Stripe's retry re-attempts the handler.
-    console.error(`stripe webhook: handler failed for ${event.type}:`, e);
-    await dbAdmin.stripeEvent
-      .deleteMany({ where: { id: event.id } })
-      .catch(() => {});
+    // PII note: log only id/type and the error message — event payloads
+    // carry customer details.
+    console.error(
+      `stripe webhook: handler failed for ${event.type} (${event.id}):`,
+      e instanceof Error ? e.message : String(e),
+    );
     return new NextResponse(null, { status: 500 });
   }
+
+  await dbAdmin.stripeEvent
+    .createMany({
+      data: [{ id: event.id, type: event.type }],
+      skipDuplicates: true,
+    })
+    .catch((e) => {
+      // Worst case the ledger write fails: a future replay re-runs an
+      // idempotent handler. Log and still 200 — the event WAS applied.
+      console.error(`stripe webhook: ledger write failed for ${event.id}:`, e);
+    });
 
   return NextResponse.json({ received: true });
 }

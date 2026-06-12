@@ -12,7 +12,12 @@ export function stripe(): Stripe {
       "STRIPE_SECRET_KEY is not set — billing is not configured in this environment.",
     );
   }
-  client ??= new Stripe(env.STRIPE_SECRET_KEY);
+  // Pin the API version IN CODE so webhook payload shapes always match the
+  // SDK's types regardless of the account's dashboard pinning — the
+  // invoice.parent path the handlers rely on depends on this.
+  client ??= new Stripe(env.STRIPE_SECRET_KEY, {
+    apiVersion: "2026-05-27.dahlia", // = SDK 22.2.0's bundled version
+  });
   return client;
 }
 

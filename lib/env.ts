@@ -32,6 +32,12 @@ const schema = z.object({
   // route rejects everything (401) until it's configured.
   CRON_SECRET: z.string().min(32).optional(),
 
+  // Billing (Phase 4). Optional at boot — the billing page shows a
+  // "not configured" state and the webhook 503s until these are set.
+  STRIPE_SECRET_KEY: z.string().min(1).optional(),
+  STRIPE_WEBHOOK_SECRET: z.string().min(1).optional(),
+  STRIPE_PRICE_ID: z.string().min(1).optional(),
+
   NODE_ENV: z
     .enum(["development", "test", "production"])
     .default("development"),

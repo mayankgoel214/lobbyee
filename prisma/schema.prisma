@@ -36,14 +36,50 @@ model Workspace {
   industry          String?
   plan              Plan         @default(trial)
   sessionCapMonthly Int          @default(50) @map("session_cap_monthly")
+  // Atomic usage counter (architecture §7b): incremented by the cap guard,
+  // reset by the invoice.paid webhook. Deliberately NOT client-updatable —
+  // migration 4 tightens the workspace UPDATE grant to (name, industry) so
+  // billing columns are service-path only.
+  sessionsUsedThisPeriod Int     @default(0) @map("sessions_used_this_period")
   stripeCustomerId  String?      @unique @map("stripe_customer_id")
   createdAt         DateTime     @default(now()) @map("created_at")
   memberships       Membership[]
   personas          Persona[]
   scenarios         Scenario[]
   sessions          Session[]
+  subscription      Subscription?
 
   @@map("workspace")
+}
+
+// ---------------------------------------------------------------------------
+// Phase 4 — billing (docs/architecture.md §7b, §13 Phase 4)
+// ---------------------------------------------------------------------------
+
+// Mirror of the workspace's Stripe subscription — written ONLY by the
+// webhook handler (service path). Workspace admins can read it (billing
+// page); clients can never write it.
+model Subscription {
+  workspaceId          String    @id @map("workspace_id") @db.Uuid
+  stripeSubscriptionId String    @unique @map("stripe_subscription_id")
+  stripeStatus         String    @map("stripe_status")
+  currentPeriodEnd     DateTime  @map("current_period_end")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+  workspace            Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@map("subscription")
+}
+
+// Processed Stripe webhook event ids — the idempotency ledger. A replayed
+// or duplicated delivery hits the primary key and is skipped. Service-path
+// only (no grants at all).
+model StripeEvent {
+  id        String   @id // Stripe event id (evt_...)
+  type      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("stripe_event")
 }
 
 // Mirrors auth.users (Supabase). Created by a DB trigger on signup —

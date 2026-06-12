@@ -11,6 +11,9 @@ export default async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+    // api/stripe excluded: webhooks carry no auth cookie — running the
+    // Supabase session refresh there is a wasted network round-trip that
+    // eats into Stripe's delivery timeout (safety-check finding).
+    "/((?!_next/static|_next/image|favicon.ico|api/stripe|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
   ],
 };

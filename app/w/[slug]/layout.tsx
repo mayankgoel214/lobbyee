@@ -48,6 +48,9 @@ export default async function WorkspaceLayout({
                 <Link href={`/w/${slug}`} className={navLink}>
                   Team
                 </Link>
+                <Link href={`/w/${slug}/billing`} className={navLink}>
+                  Billing
+                </Link>
               </>
             )}
           </nav>

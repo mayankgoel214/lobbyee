@@ -7,6 +7,7 @@ import {
 } from "@/features/evaluations/feedback";
 import { PendingFeedback } from "@/features/evaluations/pending";
 import { ChatSession } from "@/features/sessions/chat";
+import { MoodTimeline } from "@/features/sessions/mood-timeline";
 import { isMoodVector } from "@/lib/ai/mood";
 import { requireMembership } from "@/lib/auth/session";
 import { dbForRequest } from "@/lib/db/scoped";
@@ -137,6 +138,12 @@ export default async function SessionPage({
 
       {evaluation && <FeedbackPanel evaluation={evaluation} />}
       {awaitingFeedback && <PendingFeedback />}
+      <MoodTimeline
+        snapshots={session.messages
+          .map((m) => m.moodSnapshot)
+          .filter(isMoodVector)}
+      />
+
       {session.status === "completed" && !evaluation && !hasTraineeTurns && (
         <div className="mb-5 rounded-2xl border border-neutral-200 bg-neutral-50 p-4 text-sm text-neutral-600">
           This session ended before you said anything, so there&apos;s nothing

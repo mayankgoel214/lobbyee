@@ -100,6 +100,7 @@ enum TurnRole {
 enum PromptKind {
   guest_system
   mood_update
+  evaluator
 }
 
 // The "who" — a reusable guest identity. Workspace-scoped (managers author
@@ -139,22 +140,24 @@ model Scenario {
 }
 
 model Session {
-  id              String        @id @default(uuid()) @db.Uuid
-  workspaceId     String        @map("workspace_id") @db.Uuid
-  personaId       String        @map("persona_id") @db.Uuid
-  scenarioId      String        @map("scenario_id") @db.Uuid
-  userId          String        @map("user_id") @db.Uuid
-  promptVersionId String        @map("prompt_version_id") @db.Uuid
-  status          SessionStatus @default(in_progress)
-  modality        Modality      @default(text)
-  currentMood     Json          @map("current_mood")
-  startedAt       DateTime      @default(now()) @map("started_at")
-  endedAt         DateTime?     @map("ended_at")
-  workspace       Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  persona         Persona       @relation(fields: [personaId], references: [id])
-  scenario        Scenario      @relation(fields: [scenarioId], references: [id])
-  promptVersion   PromptVersion @relation(fields: [promptVersionId], references: [id])
-  messages        Message[]
+  id                String             @id @default(uuid()) @db.Uuid
+  workspaceId       String             @map("workspace_id") @db.Uuid
+  personaId         String             @map("persona_id") @db.Uuid
+  scenarioId        String             @map("scenario_id") @db.Uuid
+  userId            String             @map("user_id") @db.Uuid
+  promptVersionId   String             @map("prompt_version_id") @db.Uuid
+  status            SessionStatus      @default(in_progress)
+  modality          Modality           @default(text)
+  currentMood       Json               @map("current_mood")
+  startedAt         DateTime           @default(now()) @map("started_at")
+  endedAt           DateTime?          @map("ended_at")
+  workspace         Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  persona           Persona            @relation(fields: [personaId], references: [id])
+  scenario          Scenario           @relation(fields: [scenarioId], references: [id])
+  promptVersion     PromptVersion      @relation(fields: [promptVersionId], references: [id])
+  messages          Message[]
+  evaluation        Evaluation?
+  pendingEvaluation PendingEvaluation?
 
   @@index([workspaceId, userId, startedAt])
   @@map("session")
@@ -171,6 +174,7 @@ model Message {
   moodSnapshot Json?    @map("mood_snapshot")
   createdAt    DateTime @default(now()) @map("created_at")
   session      Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  citedBy      EvaluationEvidence[]
 
   @@unique([sessionId, turnIndex])
   @@index([workspaceId])
@@ -180,12 +184,90 @@ model Message {
 // Registry of prompt template versions (templates live in prompts/ as code;
 // every session records which version produced it — reproducibility).
 model PromptVersion {
-  id        String     @id @default(uuid()) @db.Uuid
-  kind      PromptKind
-  version   String
-  createdAt DateTime   @default(now()) @map("created_at")
-  sessions  Session[]
+  id          String       @id @default(uuid()) @db.Uuid
+  kind        PromptKind
+  version     String
+  createdAt   DateTime     @default(now()) @map("created_at")
+  sessions    Session[]
+  evaluations Evaluation[]
 
   @@unique([kind, version])
   @@map("prompt_version")
+}
+
+// ---------------------------------------------------------------------------
+// Phase 2 — evaluation engine (docs/architecture.md §6)
+// ---------------------------------------------------------------------------
+
+enum Competency {
+  empathy
+  clarity
+  problem_solving
+  professionalism
+}
+
+enum EvidenceKind {
+  strength
+  missed_opportunity
+}
+
+// One per completed session — written by the service path only (clients have
+// SELECT, nothing else). sessionId is unique → re-runs are no-ops.
+model Evaluation {
+  id                       String               @id @default(uuid()) @db.Uuid
+  sessionId                String               @unique @map("session_id") @db.Uuid
+  workspaceId              String               @map("workspace_id") @db.Uuid
+  evaluatorPromptVersionId String               @map("evaluator_prompt_version_id") @db.Uuid
+  empathyScore             Int                  @map("empathy_score")
+  empathySummary           String               @map("empathy_summary")
+  clarityScore             Int                  @map("clarity_score")
+  claritySummary           String               @map("clarity_summary")
+  problemSolvingScore      Int                  @map("problem_solving_score")
+  problemSolvingSummary    String               @map("problem_solving_summary")
+  professionalismScore     Int                  @map("professionalism_score")
+  professionalismSummary   String               @map("professionalism_summary")
+  overallSummary           String               @map("overall_summary")
+  createdAt                DateTime             @default(now()) @map("created_at")
+  session                  Session              @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  evaluatorPromptVersion   PromptVersion        @relation(fields: [evaluatorPromptVersionId], references: [id])
+  evidence                 EvaluationEvidence[]
+
+  // Rolling competency averages for the manager dashboard (Phase 3).
+  @@index([workspaceId, createdAt])
+  @@map("evaluation")
+}
+
+// A verbatim quote from the transcript backing one coaching claim. Every
+// quote is validated server-side as a real substring of the cited message —
+// hallucinated evidence never persists (docs/architecture.md §6c).
+model EvaluationEvidence {
+  id           BigInt       @id @default(autoincrement())
+  evaluationId String       @map("evaluation_id") @db.Uuid
+  workspaceId  String       @map("workspace_id") @db.Uuid
+  competency   Competency
+  kind         EvidenceKind
+  messageId    BigInt       @map("message_id")
+  quote        String
+  rationale    String
+  evaluation   Evaluation   @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+  message      Message      @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([evaluationId])
+  @@index([messageId])
+  @@map("evaluation_evidence")
+}
+
+// Work queue for the evaluator (Postgres-as-queue, lease-claimed with
+// FOR UPDATE SKIP LOCKED). Service-path only — no client grants at all.
+model PendingEvaluation {
+  sessionId     String   @id @map("session_id") @db.Uuid
+  workspaceId   String   @map("workspace_id") @db.Uuid
+  attempts      Int      @default(0)
+  lastError     String?  @map("last_error")
+  nextAttemptAt DateTime @default(now()) @map("next_attempt_at")
+  createdAt     DateTime @default(now()) @map("created_at")
+  session       Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([nextAttemptAt])
+  @@map("pending_evaluation")
 }

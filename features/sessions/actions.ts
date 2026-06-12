@@ -1,12 +1,14 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { z } from "zod";
 import { generateGuestReply, OPENING_CUE, type Turn } from "@/lib/ai/guest";
 import { isMoodVector, type MoodVector, updateMood } from "@/lib/ai/mood";
 import { requireMembership, requireUser } from "@/lib/auth/session";
 import { dbAdmin } from "@/lib/db/admin";
 import { dbForRequest } from "@/lib/db/scoped";
+import { drainSession, enqueueEvaluation } from "@/lib/eval/service";
 import { GUEST_SYSTEM_VERSION } from "@/prompts/guest-system";
 
 export type StartSessionState = { error?: string };
@@ -272,10 +274,33 @@ export async function endSessionAction(input: {
 }): Promise<{ error?: string }> {
   const user = await requireUser();
   const db = dbForRequest(user.id);
+  // Scoped read first — RLS proves ownership and gives us the workspaceId
+  // the evaluation queue row needs.
+  const session = await db.session.findUnique({
+    where: { id: input.sessionId },
+    select: { id: true, workspaceId: true, userId: true },
+  });
+  if (!session || session.userId !== user.id) {
+    return { error: "Session not found or already ended." };
+  }
   const res = await db.session.updateMany({
     where: { id: input.sessionId, userId: user.id, status: "in_progress" },
     data: { status: "completed", endedAt: new Date() },
   });
   if (res.count === 0) return { error: "Session not found or already ended." };
+
+  // Queue the coaching evaluation. Enqueue is best-effort (the cron backfill
+  // catches a crash here); the actual LLM work runs after the response via
+  // after(), so ending a session never blocks on the evaluator.
+  try {
+    await enqueueEvaluation(session.id, session.workspaceId);
+  } catch (e) {
+    console.error("evaluation enqueue failed (cron will backfill):", e);
+  }
+  after(() =>
+    drainSession(session.id, session.workspaceId).catch((e) =>
+      console.error("inline evaluation failed (queue will retry):", e),
+    ),
+  );
   return {};
 }

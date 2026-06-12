@@ -13,22 +13,22 @@ export default async function TrainPage({
   const { user, workspace } = await requireMembership(slug);
   const db = dbForRequest(user.id);
 
-  const [personas, scenarios, recent] = [
-    await db.persona.findMany({
+  const [personas, scenarios, recent] = await Promise.all([
+    db.persona.findMany({
       where: { workspaceId: workspace.id },
       orderBy: { createdAt: "desc" },
     }),
-    await db.scenario.findMany({
+    db.scenario.findMany({
       where: { OR: [{ workspaceId: workspace.id }, { workspaceId: null }] },
       orderBy: [{ isLibrary: "asc" }, { difficulty: "asc" }],
     }),
-    await db.session.findMany({
+    db.session.findMany({
       where: { userId: user.id },
       orderBy: { startedAt: "desc" },
       take: 5,
       include: { persona: true, scenario: true },
     }),
-  ];
+  ]);
 
   return (
     <main className="mx-auto max-w-xl p-6">

@@ -28,21 +28,21 @@ const turnSchema = z.object({
 // SERVICE-PATH JUSTIFICATION (dbAdmin): prompt_version is a global registry
 // (no workspace) — writes are service-path by design; reads are RLS-open.
 async function promptVersionId(): Promise<string> {
-  const existing = await dbAdmin.promptVersion.findUnique({
-    where: {
-      kind_version: { kind: "guest_system", version: GUEST_SYSTEM_VERSION },
-    },
-  });
-  if (existing) return existing.id;
-  const created = await dbAdmin.promptVersion.upsert({
+  const row = await dbAdmin.promptVersion.upsert({
     where: {
       kind_version: { kind: "guest_system", version: GUEST_SYSTEM_VERSION },
     },
     update: {},
     create: { kind: "guest_system", version: GUEST_SYSTEM_VERSION },
   });
-  return created.id;
+  return row.id;
 }
+
+// Cost guard (safety-check finding): bounds a runaway/hostile loop without
+// bothering a real trainee. Per-user via the scoped client — full
+// per-workspace caps arrive with billing in Phase 4.
+const MAX_IN_PROGRESS_PER_USER = 3;
+const MAX_SESSIONS_PER_USER_PER_DAY = 20;
 
 export async function startSessionAction(
   _prev: StartSessionState,
@@ -70,9 +70,33 @@ export async function startSessionAction(
     return { error: "That scenario isn't available." };
   }
 
+  // Cost guards BEFORE any model spend.
+  const [inProgress, lastDay] = await Promise.all([
+    db.session.count({ where: { userId: user.id, status: "in_progress" } }),
+    db.session.count({
+      where: {
+        userId: user.id,
+        startedAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+      },
+    }),
+  ]);
+  if (inProgress >= MAX_IN_PROGRESS_PER_USER) {
+    return {
+      error:
+        "You have open sessions already — end one before starting another.",
+    };
+  }
+  if (lastDay >= MAX_SESSIONS_PER_USER_PER_DAY) {
+    return { error: "Daily session limit reached — try again tomorrow." };
+  }
+
   const mood: MoodVector = isMoodVector(persona.baselineMood)
     ? persona.baselineMood
     : { frustration: 50, trust: 50, patience: 50, satisfaction: 50 };
+
+  // Resolve the prompt version BEFORE paying for a model call — it also
+  // validates DB connectivity cheaply.
+  const pvId = await promptVersionId();
 
   // The guest speaks first.
   let opening: string;
@@ -98,20 +122,33 @@ export async function startSessionAction(
       personaId,
       scenarioId,
       userId: user.id,
-      promptVersionId: await promptVersionId(),
+      promptVersionId: pvId,
       currentMood: mood,
     },
   });
-  await db.message.create({
-    data: {
-      sessionId: session.id,
-      workspaceId: workspace.id,
-      turnIndex: 0,
-      role: "guest",
-      text: opening,
-      moodSnapshot: mood,
-    },
-  });
+  try {
+    await db.message.create({
+      data: {
+        sessionId: session.id,
+        workspaceId: workspace.id,
+        turnIndex: 0,
+        role: "guest",
+        text: opening,
+        moodSnapshot: mood,
+      },
+    });
+  } catch (e) {
+    // Never leave a session with no opening line — the "guest speaks first"
+    // contract would silently break. Mark it errored and tell the user.
+    console.error("opening message create failed:", e);
+    await db.session
+      .updateMany({
+        where: { id: session.id, userId: user.id },
+        data: { status: "errored", endedAt: new Date() },
+      })
+      .catch(() => {});
+    return { error: "Couldn't start the session — try again." };
+  }
 
   redirect(`/w/${slug}/sessions/${session.id}`);
 }
@@ -188,26 +225,40 @@ export async function sendTurnAction(input: {
     };
   }
 
-  const nextIndex = session.messages.length;
-  await db.message.create({
-    data: {
-      sessionId,
-      workspaceId: session.workspaceId,
-      turnIndex: nextIndex,
-      role: "user",
-      text,
-    },
-  });
-  await db.message.create({
-    data: {
-      sessionId,
-      workspaceId: session.workspaceId,
-      turnIndex: nextIndex + 1,
-      role: "guest",
-      text: guestText,
-      moodSnapshot: mood,
-    },
-  });
+  // Derive from the highest existing index (NOT array length) — survives any
+  // earlier partial write that left a gap or orphan.
+  const nextIndex = (session.messages.at(-1)?.turnIndex ?? -1) + 1;
+  try {
+    await db.message.create({
+      data: {
+        sessionId,
+        workspaceId: session.workspaceId,
+        turnIndex: nextIndex,
+        role: "user",
+        text,
+      },
+    });
+    await db.message.create({
+      data: {
+        sessionId,
+        workspaceId: session.workspaceId,
+        turnIndex: nextIndex + 1,
+        role: "guest",
+        text: guestText,
+        moodSnapshot: mood,
+      },
+    });
+  } catch (e: unknown) {
+    // Concurrent turn (second tab / double submit) collides on the
+    // (sessionId, turnIndex) unique constraint — surface it cleanly.
+    if ((e as { code?: string }).code === "P2002") {
+      return {
+        ok: false,
+        error: "Another reply is already in flight — refresh to catch up.",
+      };
+    }
+    throw e;
+  }
   await db.session.update({
     where: { id: sessionId },
     data: { currentMood: mood },

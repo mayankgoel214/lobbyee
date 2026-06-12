@@ -51,6 +51,12 @@ export default async function SessionPage({
       turnIndex: m.turnIndex,
     }));
 
+  // Latest stored coach hint (§5g) — seeds the strip on (re)load so guidance
+  // persists across a refresh. Coach turns are excluded from chatMessages.
+  const initialHint =
+    [...session.messages].reverse().find((m) => m.role === "coach")?.text ??
+    null;
+
   const live = session.status === "in_progress" && session.userId === user.id;
   if (live) {
     return (
@@ -64,6 +70,7 @@ export default async function SessionPage({
           turnIndex,
         }))}
         initialMood={mood}
+        initialHint={initialHint}
       />
     );
   }
@@ -132,7 +139,7 @@ export default async function SessionPage({
         <p className="text-sm text-neutral-500">
           with {session.persona.name} ·{" "}
           {session.status === "in_progress" ? "in progress" : session.status} ·{" "}
-          {session.messages.length} turns
+          {chatMessages.length} turns
         </p>
       </div>
 

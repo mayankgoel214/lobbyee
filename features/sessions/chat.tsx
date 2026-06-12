@@ -37,22 +37,40 @@ function MoodStrip({ mood }: { mood: MoodVector }) {
   );
 }
 
+// Always-on coach strip (§5g): a persistent one-line nudge that updates each
+// turn. Visually distinct from guest/staff bubbles so it never reads as part
+// of the conversation. Hidden until the first hint lands.
+function CoachStrip({ hint }: { hint: string | null }) {
+  if (!hint) return null;
+  return (
+    <div className="flex items-start gap-2 border-b border-indigo-100 bg-indigo-50 px-4 py-2">
+      <span className="mt-px text-[10px] font-semibold tracking-wide text-indigo-500 uppercase">
+        Coach
+      </span>
+      <span className="text-xs text-indigo-900">{hint}</span>
+    </div>
+  );
+}
+
 export function ChatSession({
   sessionId,
   personaName,
   scenarioTitle,
   initialMessages,
   initialMood,
+  initialHint,
 }: {
   sessionId: string;
   personaName: string;
   scenarioTitle: string;
   initialMessages: ChatMessage[];
   initialMood: MoodVector;
+  initialHint: string | null;
 }) {
   const router = useRouter();
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
   const [mood, setMood] = useState<MoodVector>(initialMood);
+  const [hint, setHint] = useState<string | null>(initialHint);
   const [input, setInput] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -75,6 +93,8 @@ export function ChatSession({
       if (result.ok) {
         setMessages((m) => [...m, { role: "guest", text: result.guestText }]);
         setMood(result.mood);
+        // null = the hint call failed/timed out this turn → keep the last one.
+        if (result.coachHint) setHint(result.coachHint);
       } else {
         setError(result.error);
         setMessages((m) => m.slice(0, -1));
@@ -110,6 +130,7 @@ export function ChatSession({
       </header>
 
       <MoodStrip mood={mood} />
+      <CoachStrip hint={hint} />
 
       <div className="flex-1 overflow-y-auto px-4 py-4">
         <div className="flex flex-col gap-3">

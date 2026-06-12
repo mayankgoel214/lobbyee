@@ -8,4 +8,6 @@ export const MODELS = {
   guest: "gemini-3-flash-preview",
   mood: "gemini-3.1-flash-lite",
   evaluator: "gemini-3-flash-preview",
+  // Live coach hint (§5g) — mechanical, cheapest model, same tier as mood.
+  coach: "gemini-3.1-flash-lite",
 } as const;

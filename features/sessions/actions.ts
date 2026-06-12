@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { z } from "zod";
+import { generateCoachHint } from "@/lib/ai/coach";
 import { generateGuestReply, OPENING_CUE, type Turn } from "@/lib/ai/guest";
 import { isMoodVector, type MoodVector, updateMood } from "@/lib/ai/mood";
 import { isAdmin, requireMembership, requireUser } from "@/lib/auth/session";
@@ -14,8 +15,36 @@ import { GUEST_SYSTEM_VERSION } from "@/prompts/guest-system";
 
 export type StartSessionState = { error?: string };
 export type TurnResult =
-  | { ok: true; guestText: string; mood: MoodVector; turnIndex: number }
+  | {
+      ok: true;
+      guestText: string;
+      mood: MoodVector;
+      turnIndex: number;
+      // Live coach nudge for this turn (§5g). null = the hint call failed or
+      // timed out; the UI keeps whatever hint it last showed.
+      coachHint: string | null;
+    }
   | { ok: false; error: string };
+
+// successCriteria is a Json column — coerce to a clean string[] before it
+// reaches a prompt.
+function asCriteria(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((c): c is string => typeof c === "string")
+    : [];
+}
+
+// The text of the most recent stored coach hint (for the "don't repeat
+// yourself" prompt input), given messages ordered by turnIndex asc.
+function lastCoachHint(
+  messages: { role: string; text: string }[],
+): string | null {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i];
+    if (m?.role === "coach") return m.text;
+  }
+  return null;
+}
 
 const startSchema = z.object({
   slug: z.string().min(1),
@@ -119,6 +148,16 @@ export async function startSessionAction(
     };
   }
 
+  // Opening coach hint (§5g) — kicked off concurrently with the opening line
+  // so it adds no latency to session start. It needs only the baseline mood +
+  // success criteria, not the opening text. Resolves to null on any failure.
+  const openingHintPromise = generateCoachHint({
+    mood,
+    lastGuestText: null,
+    successCriteria: asCriteria(scenario.successCriteria),
+    lastHint: null,
+  });
+
   // The guest speaks first.
   let opening: string;
   try {
@@ -131,6 +170,7 @@ export async function startSessionAction(
     });
   } catch (e) {
     console.error("session opening failed:", e);
+    void openingHintPromise; // abandon — best-effort, self-handling
     await releaseSessionSlot(workspace.id).catch((releaseError) =>
       console.error(
         `cap release failed for workspace ${workspace.id} — counter drifts +1:`,
@@ -196,6 +236,27 @@ export async function startSessionAction(
     return { error: "Couldn't start the session — try again." };
   }
 
+  // Opening coach hint (§5g) — collect the concurrently-started hint. Best
+  // effort: a failure here must never break a session that's otherwise good to
+  // go. Stored as a coach turn (index 1) so the strip has guidance the moment
+  // the trainee lands on the screen.
+  try {
+    const hint = await openingHintPromise;
+    if (hint) {
+      await db.message.create({
+        data: {
+          sessionId: session.id,
+          workspaceId: workspace.id,
+          turnIndex: 1,
+          role: "coach",
+          text: hint,
+        },
+      });
+    }
+  } catch (e) {
+    console.error("opening coach hint failed (non-fatal):", e);
+  }
+
   redirect(`/w/${slug}/sessions/${session.id}`);
 }
 
@@ -230,7 +291,12 @@ export async function sendTurnAction(input: {
   if (session.status !== "in_progress") {
     return { ok: false, error: "This session has ended." };
   }
-  if (session.messages.length >= 80) {
+  // Count only conversation turns — coach hints add a third row per turn and
+  // must not shrink the trainee's effective conversation budget.
+  const conversationTurns = session.messages.filter(
+    (m) => m.role !== "coach",
+  ).length;
+  if (conversationTurns >= 80) {
     return {
       ok: false,
       error: "This session is very long — end it to get your transcript.",
@@ -254,6 +320,19 @@ export async function sendTurnAction(input: {
     .filter((m) => m.role === "user" || m.role === "guest")
     .map((m) => ({ role: m.role as "user" | "guest", text: m.text }));
 
+  // Live coach hint (§5g) — kicked off CONCURRENTLY with the guest reply so it
+  // never adds latency: the guest-reply generation is the longer pole and
+  // hides the hint's round-trip. It reacts to the just-computed mood and the
+  // guest's prior turn (the new reply isn't generated yet); in the voice layer
+  // it will instead react to the streamed reply, concurrent with TTS.
+  // generateCoachHint never throws — it resolves to null on any failure.
+  const hintPromise = generateCoachHint({
+    mood,
+    lastGuestText: lastGuest,
+    successCriteria: asCriteria(session.scenario.successCriteria),
+    lastHint: lastCoachHint(session.messages),
+  });
+
   let guestText: string;
   try {
     guestText = await generateGuestReply({
@@ -265,6 +344,7 @@ export async function sendTurnAction(input: {
     });
   } catch (e) {
     console.error("guest reply failed:", e);
+    void hintPromise; // abandon — it has its own internal error handling
     return {
       ok: false,
       error: "The guest didn't respond — try sending that again.",
@@ -310,7 +390,29 @@ export async function sendTurnAction(input: {
     data: { currentMood: mood },
   });
 
-  return { ok: true, guestText, mood, turnIndex: nextIndex + 1 };
+  // The hint was generated concurrently above — collect it now (it's almost
+  // always already resolved). Persisting it is best-effort: a coaching nudge
+  // must never turn a good, durable turn into an error. Stored as a coach turn
+  // so it survives a reload; the guest model and evaluator both ignore it.
+  let coachHint: string | null = null;
+  try {
+    coachHint = await hintPromise;
+    if (coachHint) {
+      await db.message.create({
+        data: {
+          sessionId,
+          workspaceId: session.workspaceId,
+          turnIndex: nextIndex + 2,
+          role: "coach",
+          text: coachHint,
+        },
+      });
+    }
+  } catch (e) {
+    console.error("coach hint persist failed (non-fatal):", e);
+  }
+
+  return { ok: true, guestText, mood, turnIndex: nextIndex + 1, coachHint };
 }
 
 export async function endSessionAction(input: {

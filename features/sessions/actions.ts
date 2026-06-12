@@ -4,13 +4,14 @@ import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { z } from "zod";
 import { generateCoachHint } from "@/lib/ai/coach";
-import { generateGuestReply, OPENING_CUE, type Turn } from "@/lib/ai/guest";
-import { isMoodVector, type MoodVector, updateMood } from "@/lib/ai/mood";
+import { generateGuestReply, OPENING_CUE } from "@/lib/ai/guest";
+import { isMoodVector, type MoodVector } from "@/lib/ai/mood";
 import { isAdmin, requireMembership, requireUser } from "@/lib/auth/session";
 import { claimSessionSlot, releaseSessionSlot } from "@/lib/billing/cap";
 import { dbAdmin } from "@/lib/db/admin";
 import { dbForRequest } from "@/lib/db/scoped";
 import { drainSession, enqueueEvaluation } from "@/lib/eval/service";
+import { runTurn, textAI, textPersistence } from "@/lib/turn-engine";
 import { GUEST_SYSTEM_VERSION } from "@/prompts/guest-system";
 
 export type StartSessionState = { error?: string };
@@ -32,18 +33,6 @@ function asCriteria(value: unknown): string[] {
   return Array.isArray(value)
     ? value.filter((c): c is string => typeof c === "string")
     : [];
-}
-
-// The text of the most recent stored coach hint (for the "don't repeat
-// yourself" prompt input), given messages ordered by turnIndex asc.
-function lastCoachHint(
-  messages: { role: string; text: string }[],
-): string | null {
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const m = messages[i];
-    if (m?.role === "coach") return m.text;
-  }
-  return null;
 }
 
 const startSchema = z.object({
@@ -306,113 +295,61 @@ export async function sendTurnAction(input: {
   const prevMood: MoodVector = isMoodVector(session.currentMood)
     ? session.currentMood
     : { frustration: 50, trust: 50, patience: 50, satisfaction: 50 };
-  const lastGuest =
-    [...session.messages].reverse().find((m) => m.role === "guest")?.text ??
-    null;
 
-  const mood = await updateMood({
-    prevMood,
-    lastGuestText: lastGuest,
-    userText: text,
-  });
-
-  const history: Turn[] = session.messages
-    .filter((m) => m.role === "user" || m.role === "guest")
-    .map((m) => ({ role: m.role as "user" | "guest", text: m.text }));
-
-  // Live coach hint (§5g) — kicked off CONCURRENTLY with the guest reply so it
-  // never adds latency: the guest-reply generation is the longer pole and
-  // hides the hint's round-trip. It reacts to the just-computed mood and the
-  // guest's prior turn (the new reply isn't generated yet); in the voice layer
-  // it will instead react to the streamed reply, concurrent with TTS.
-  // generateCoachHint never throws — it resolves to null on any failure.
-  const hintPromise = generateCoachHint({
-    mood,
-    lastGuestText: lastGuest,
-    successCriteria: asCriteria(session.scenario.successCriteria),
-    lastHint: lastCoachHint(session.messages),
-  });
-
-  let guestText: string;
-  try {
-    guestText = await generateGuestReply({
-      persona: session.persona,
-      scenario: session.scenario,
-      history,
-      mood,
+  // The orchestration lives in the transport-agnostic engine (the Phase 5
+  // voice worker reuses the same runTurn). This action keeps the text-only
+  // concerns: auth, the conversation-length guard above, snapshot assembly,
+  // and mapping the outcome to the form-action result shape.
+  const outcome = await runTurn(
+    {
+      ai: textAI,
+      persist: textPersistence(db, {
+        sessionId,
+        workspaceId: session.workspaceId,
+      }),
+    },
+    {
+      snapshot: {
+        persona: session.persona,
+        scenario: session.scenario,
+        successCriteria: asCriteria(session.scenario.successCriteria),
+        currentMood: prevMood,
+        messages: session.messages.map((m) => ({
+          role: m.role,
+          text: m.text,
+          turnIndex: m.turnIndex,
+        })),
+      },
       userText: text,
-    });
-  } catch (e) {
-    console.error("guest reply failed:", e);
-    void hintPromise; // abandon — it has its own internal error handling
-    return {
-      ok: false,
-      error: "The guest didn't respond — try sending that again.",
-    };
-  }
+    },
+  );
 
-  // Derive from the highest existing index (NOT array length) — survives any
-  // earlier partial write that left a gap or orphan.
-  const nextIndex = (session.messages.at(-1)?.turnIndex ?? -1) + 1;
-  try {
-    await db.message.create({
-      data: {
-        sessionId,
-        workspaceId: session.workspaceId,
-        turnIndex: nextIndex,
-        role: "user",
-        text,
-      },
-    });
-    await db.message.create({
-      data: {
-        sessionId,
-        workspaceId: session.workspaceId,
-        turnIndex: nextIndex + 1,
-        role: "guest",
-        text: guestText,
-        moodSnapshot: mood,
-      },
-    });
-  } catch (e: unknown) {
-    // Concurrent turn (second tab / double submit) collides on the
-    // (sessionId, turnIndex) unique constraint — surface it cleanly.
-    if ((e as { code?: string }).code === "P2002") {
-      return {
-        ok: false,
-        error: "Another reply is already in flight — refresh to catch up.",
-      };
+  if (!outcome.ok) {
+    // Exhaustive by design: if a new failure reason is added to TurnOutcome,
+    // the `satisfies never` below fails to compile until it's mapped here —
+    // a new failure mode can't silently inherit the wrong message.
+    let error: string;
+    switch (outcome.reason) {
+      case "collision":
+        error = "Another reply is already in flight — refresh to catch up.";
+        break;
+      case "guest_failed":
+        error = "The guest didn't respond — try sending that again.";
+        break;
+      default:
+        error = "Something went wrong — try sending that again.";
+        outcome.reason satisfies never;
     }
-    throw e;
-  }
-  await db.session.update({
-    where: { id: sessionId },
-    data: { currentMood: mood },
-  });
-
-  // The hint was generated concurrently above — collect it now (it's almost
-  // always already resolved). Persisting it is best-effort: a coaching nudge
-  // must never turn a good, durable turn into an error. Stored as a coach turn
-  // so it survives a reload; the guest model and evaluator both ignore it.
-  let coachHint: string | null = null;
-  try {
-    coachHint = await hintPromise;
-    if (coachHint) {
-      await db.message.create({
-        data: {
-          sessionId,
-          workspaceId: session.workspaceId,
-          turnIndex: nextIndex + 2,
-          role: "coach",
-          text: coachHint,
-        },
-      });
-    }
-  } catch (e) {
-    console.error("coach hint persist failed (non-fatal):", e);
+    return { ok: false, error };
   }
 
-  return { ok: true, guestText, mood, turnIndex: nextIndex + 1, coachHint };
+  return {
+    ok: true,
+    guestText: outcome.guestText,
+    mood: outcome.mood,
+    turnIndex: outcome.guestTurnIndex,
+    coachHint: outcome.coachHint,
+  };
 }
 
 export async function endSessionAction(input: {

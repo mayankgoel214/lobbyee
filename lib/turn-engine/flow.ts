@@ -73,8 +73,11 @@ export async function runTurn(
   }
 
   // Derive from the highest existing index (NOT array length) — survives any
-  // earlier partial write that left a gap or orphan.
-  const nextIndex = (snapshot.messages.at(-1)?.turnIndex ?? -1) + 1;
+  // earlier partial write that left a gap or orphan. Take the max over all
+  // rows rather than the last element, so the engine doesn't silently depend
+  // on the caller having sorted the snapshot (a future worker might not).
+  const nextIndex =
+    snapshot.messages.reduce((max, m) => Math.max(max, m.turnIndex), -1) + 1;
 
   try {
     await persist.writeUserAndGuest({ nextIndex, userText, guestText, mood });

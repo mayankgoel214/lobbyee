@@ -4,14 +4,13 @@
 // These use fake ports (no network, no DB) to lock in the sequence the voice
 // worker must also honor: mood -> guest+coach concurrent -> persist -> result.
 import { describe, expect, it, vi } from "vitest";
-import { runTurn } from "@/lib/turn-engine";
 import type {
   AIPort,
   ConversationSnapshot,
   PersistencePort,
   SnapshotMessage,
 } from "@/lib/turn-engine";
-import { TurnCollisionError } from "@/lib/turn-engine";
+import { runTurn, TurnCollisionError } from "@/lib/turn-engine";
 
 const MOOD = { frustration: 40, trust: 55, patience: 50, satisfaction: 50 };
 
@@ -82,12 +81,13 @@ describe("runTurn — happy path", () => {
     ]);
   });
 
-  it("feeds the model the new mood, the prior guest line, and coach excludes itself from history", async () => {
+  it("feeds the model the new mood, the prior guest line, and history that excludes coach/system rows", async () => {
     const ai = fakeAI();
     const { port } = recordingPersistence();
     const snap = snapshot([
-      { role: "guest", text: "Opening line.", turnIndex: 0 },
-      { role: "coach", text: "Prior hint.", turnIndex: 1 },
+      { role: "system", text: "(system note)", turnIndex: 0 },
+      { role: "guest", text: "Opening line.", turnIndex: 1 },
+      { role: "coach", text: "Prior hint.", turnIndex: 2 },
     ]);
 
     await runTurn(
@@ -106,12 +106,63 @@ describe("runTurn — happy path", () => {
       successCriteria: ["Acknowledge first", "Offer an alternative"],
       lastHint: "Prior hint.",
     });
-    // History passed to the guest excludes coach/system rows.
-    const guestArg = (ai.generateGuest as ReturnType<typeof vi.fn>).mock
-      .calls[0][0];
-    expect(guestArg.history).toEqual([
-      { role: "guest", text: "Opening line." },
+    // The guest gets the NEW mood (not prevMood) and a history with only
+    // user/guest rows — coach and system are filtered out.
+    expect(ai.generateGuest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        mood: MOOD,
+        history: [{ role: "guest", text: "Opening line." }],
+      }),
+    );
+  });
+
+  it("picks the latest guest line when the history ends on a user turn", async () => {
+    const ai = fakeAI();
+    const { port } = recordingPersistence();
+    const snap = snapshot([
+      { role: "guest", text: "First guest line.", turnIndex: 0 },
+      { role: "user", text: "A staff reply.", turnIndex: 1 },
     ]);
+
+    await runTurn({ ai, persist: port }, { snapshot: snap, userText: "next" });
+
+    expect(ai.updateMood).toHaveBeenCalledWith(
+      expect.objectContaining({ lastGuestText: "First guest line." }),
+    );
+  });
+
+  it("starts the coach hint concurrently with the guest reply, not after it", async () => {
+    // generateGuest blocks until we release it; if coachHint were awaited
+    // before generateGuest, it would have to be called first. We assert
+    // coachHint was already in flight while the guest call was pending.
+    let releaseGuest: (v: string) => void = () => {};
+    const guestPending = new Promise<string>((r) => {
+      releaseGuest = r;
+    });
+    const coachStarted = vi.fn();
+    const ai = fakeAI({
+      generateGuest: vi.fn(() => guestPending),
+      coachHint: vi.fn(async () => {
+        coachStarted();
+        return "hint";
+      }),
+    });
+    const { port } = recordingPersistence();
+    const snap = snapshot([{ role: "guest", text: "hi", turnIndex: 0 }]);
+
+    const running = runTurn(
+      { ai, persist: port },
+      { snapshot: snap, userText: "x" },
+    );
+    // Let microtasks flush while the guest call is still pending.
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(coachStarted).toHaveBeenCalled(); // hint already in flight
+    expect(ai.generateGuest).toHaveBeenCalled();
+
+    releaseGuest("Guest reply.");
+    const out = await running;
+    expect(out.ok).toBe(true);
   });
 });
 
@@ -136,6 +187,27 @@ describe("runTurn — index derivation", () => {
       "setCurrentMood",
       "writeCoachHint@8",
     ]);
+  });
+
+  it("starts at index 0 on the first turn of an empty session", async () => {
+    const ai = fakeAI();
+    const { calls, port } = recordingPersistence();
+
+    const out = await runTurn(
+      { ai, persist: port },
+      { snapshot: snapshot([]), userText: "first" },
+    );
+
+    expect(out.ok && out.guestTurnIndex).toBe(1);
+    expect(calls).toEqual([
+      "writeUserAndGuest@0",
+      "setCurrentMood",
+      "writeCoachHint@2",
+    ]);
+    // No prior guest line on the very first turn.
+    expect(ai.updateMood).toHaveBeenCalledWith(
+      expect.objectContaining({ lastGuestText: null }),
+    );
   });
 });
 
@@ -222,5 +294,26 @@ describe("runTurn — coach hint is best-effort", () => {
     // The turn is durable; the hint failure doesn't break it.
     expect(out.ok).toBe(true);
     expect(out.ok && out.coachHint).toBe("Acknowledge her board meeting.");
+  });
+
+  it("still returns ok (coachHint null) when the hint port itself rejects", async () => {
+    // The AIPort contract says coachHint never throws, but the engine must
+    // survive a port that breaks the contract — the turn stays durable.
+    const ai = fakeAI({
+      coachHint: vi.fn(async () => {
+        throw new Error("hint port broke its contract");
+      }),
+    });
+    const { port, calls } = recordingPersistence();
+    const snap = snapshot([{ role: "guest", text: "hi", turnIndex: 0 }]);
+
+    const out = await runTurn(
+      { ai, persist: port },
+      { snapshot: snap, userText: "x" },
+    );
+
+    expect(out.ok).toBe(true);
+    expect(out.ok && out.coachHint).toBe(null);
+    expect(calls).toEqual(["writeUserAndGuest@1", "setCurrentMood"]);
   });
 });

@@ -325,13 +325,22 @@ export async function sendTurnAction(input: {
   );
 
   if (!outcome.ok) {
-    return {
-      ok: false,
-      error:
-        outcome.reason === "collision"
-          ? "Another reply is already in flight — refresh to catch up."
-          : "The guest didn't respond — try sending that again.",
-    };
+    // Exhaustive by design: if a new failure reason is added to TurnOutcome,
+    // the `satisfies never` below fails to compile until it's mapped here —
+    // a new failure mode can't silently inherit the wrong message.
+    let error: string;
+    switch (outcome.reason) {
+      case "collision":
+        error = "Another reply is already in flight — refresh to catch up.";
+        break;
+      case "guest_failed":
+        error = "The guest didn't respond — try sending that again.";
+        break;
+      default:
+        error = "Something went wrong — try sending that again.";
+        outcome.reason satisfies never;
+    }
+    return { ok: false, error };
   }
 
   return {

@@ -18,6 +18,11 @@ export const textAI: AIPort = {
   coachHint: generateCoachHint,
 };
 
+// SECURITY: `db` MUST be the request's RLS-scoped client (`dbForRequest(userId)`),
+// NEVER `dbAdmin`. The `ScopedDb` type enforces this at compile time — do not
+// widen it or cast `dbAdmin` to it. Passing an unscoped client here would write
+// tenant rows with RLS off. workspaceId/sessionId must come from an RLS-validated
+// read (see sendTurnAction), never from raw client input.
 export function textPersistence(
   db: ScopedDb,
   ids: { sessionId: string; workspaceId: string },

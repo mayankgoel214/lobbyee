@@ -56,7 +56,10 @@ export async function generateGuestReply(input: {
     },
   });
 
-  const text = response.text?.trim();
+  // Defense in depth for the prompt rule: strip any leading bracketed
+  // stage-direction echo (e.g. "[Guest mood right now — …]") if the model
+  // repeats it despite instructions.
+  const text = response.text?.replace(/^(\s*\[[^\]]*\]\s*)+/, "").trim();
   if (!text) {
     // Distinguish safety blocks / token exhaustion from outages in logs.
     console.error(

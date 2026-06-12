@@ -6,7 +6,8 @@
       "!.next",
       "!node_modules",
       "!pnpm-lock.yaml",
-      "!graphify-out"
+      "!graphify-out",
+      "!worker"
     ]
   },
   "formatter": {

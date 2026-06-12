@@ -76,7 +76,11 @@ describe("isVerbatimQuote", () => {
 
 describe("validateEvidence", () => {
   const messages: TranscriptMessage[] = [
-    { id: BigInt(101), role: "guest", text: "This charge is wrong and I'm late." },
+    {
+      id: BigInt(101),
+      role: "guest",
+      text: "This charge is wrong and I'm late.",
+    },
     {
       id: BigInt(102),
       role: "user",

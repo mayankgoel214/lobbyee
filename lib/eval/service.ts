@@ -20,7 +20,7 @@ import "server-only";
 import { z } from "zod";
 import { evaluateSession, type TranscriptMessage } from "@/lib/ai/evaluator";
 import { dbAdmin } from "@/lib/db/admin";
-import { EVALUATOR_VERSION } from "@/prompts/evaluator";
+import { COMPETENCIES, EVALUATOR_VERSION } from "@/prompts/evaluator";
 
 const MAX_ATTEMPTS = 5;
 /** Visibility timeout: a claimed row is invisible to other workers for this
@@ -74,28 +74,36 @@ async function recordFailure(sessionId: string, error: unknown): Promise<void> {
   const message = (
     error instanceof Error ? error.message : String(error)
   ).slice(0, 500);
-  // Exponential backoff: 2, 4, 8, 16 minutes (capped at 60). At attempt 5 the
-  // row stays put as a dead letter — visible in the table, skipped by claims.
-  await dbAdmin.$executeRaw`
+  // Exponential backoff after each failed attempt N: 2^N minutes (2, 4, 8,
+  // 16; capped at 60) plus up to 30s of jitter so retries from concurrent
+  // workers don't thunder. RETURNING gives us the post-increment count in the
+  // same statement — no second read, no race on the dead-letter check.
+  // At MAX_ATTEMPTS the row stays put as a dead letter — visible in the
+  // table, skipped by claims and by the backfill sweep.
+  const rows = await dbAdmin.$queryRaw<{ attempts: number }[]>`
     UPDATE "pending_evaluation"
     SET "attempts" = "attempts" + 1,
         "last_error" = ${message},
-        "next_attempt_at" = now() + (interval '1 minute' * least(power(2, "attempts" + 1), 60))
-    WHERE "session_id" = ${sessionId}::uuid`;
-  const row = await dbAdmin.pendingEvaluation.findUnique({
-    where: { sessionId },
-    select: { attempts: true },
-  });
-  if (row && row.attempts >= MAX_ATTEMPTS) {
+        "next_attempt_at" = now()
+          + (interval '1 minute' * least(power(2, "attempts" + 1), 60))
+          + (interval '1 second' * floor(random() * 30))
+    WHERE "session_id" = ${sessionId}::uuid
+    RETURNING "attempts"`;
+  const attempts = rows[0]?.attempts ?? 0;
+  if (attempts >= MAX_ATTEMPTS) {
     // Sentry lands in Phase 4 — until then this line IS the dead-letter alert.
     console.error(
-      `EVAL DEAD-LETTER: session ${sessionId} failed ${row.attempts} times — last error: ${message}`,
+      `EVAL DEAD-LETTER: session ${sessionId} failed ${attempts} times — last error: ${message}`,
     );
   }
 }
 
-/** Park a row permanently without erroring (e.g. nothing to evaluate). The
- *  row's presence stops the backfill sweep from re-enqueueing forever. */
+/** Park a row permanently without erroring — ONLY for states that can never
+ *  become evaluable (e.g. an empty transcript: messages are immutable, so a
+ *  completed session with no trainee turns stays that way). The row's
+ *  presence stops the backfill sweep from re-enqueueing forever. States that
+ *  COULD still change (session not completed yet) must DELETE the row
+ *  instead, so the normal triggers re-enqueue once the state resolves. */
 async function parkPending(sessionId: string, reason: string): Promise<void> {
   await dbAdmin.pendingEvaluation.updateMany({
     where: { sessionId },
@@ -131,10 +139,11 @@ async function processSession(sessionId: string): Promise<void> {
     return;
   }
   if (session.status !== "completed") {
-    await parkPending(
-      sessionId,
-      `skipped: session status is ${session.status}`,
-    );
+    // Not parked: an in_progress session can still complete later, and a
+    // parked row would block both re-enqueue (skipDuplicates) and the
+    // backfill sweep — the session would never get evaluated. Drop the row;
+    // ending the session re-enqueues it.
+    await dbAdmin.pendingEvaluation.deleteMany({ where: { sessionId } });
     return;
   }
   const messages: TranscriptMessage[] = session.messages.map((m) => ({
@@ -168,9 +177,7 @@ async function processSession(sessionId: string): Promise<void> {
   });
 
   const r = evaluated.results;
-  const evidenceRows = (
-    ["empathy", "clarity", "problem_solving", "professionalism"] as const
-  ).flatMap((c) =>
+  const evidenceRows = COMPETENCIES.flatMap((c) =>
     r[c].evidence.map((e) => ({
       workspaceId: session.workspaceId,
       competency: c,
@@ -262,7 +269,9 @@ export async function drainBatch(limit: number): Promise<{
   const results = await Promise.all(ids.map((id) => runClaimed(id)));
   const succeeded = results.filter((r) => r.ok).length;
   return {
-    backfilled,
+    // Defensive Number(): the result is JSON-serialized by the cron route,
+    // and a driver returning BigInt would crash NextResponse.json.
+    backfilled: Number(backfilled),
     claimed: ids.length,
     succeeded,
     failed: ids.length - succeeded,

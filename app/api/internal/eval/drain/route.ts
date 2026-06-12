@@ -12,7 +12,14 @@ export const maxDuration = 60;
 
 function authorized(request: Request): boolean {
   const secret = env.CRON_SECRET;
-  if (!secret) return false;
+  if (!secret) {
+    // Server-side only — the response below stays an undifferentiated 401 so
+    // unauthenticated callers can't distinguish "unconfigured" from "wrong".
+    console.error(
+      "eval drain: CRON_SECRET is not configured — the cron backstop is disabled",
+    );
+    return false;
+  }
   const header = request.headers.get("authorization") ?? "";
   // Hash both sides so the comparison is constant-time regardless of length.
   const a = createHash("sha256").update(header).digest();
@@ -21,11 +28,8 @@ function authorized(request: Request): boolean {
 }
 
 export async function GET(request: Request) {
-  if (!env.CRON_SECRET) {
-    return new NextResponse("CRON_SECRET not configured", { status: 503 });
-  }
   if (!authorized(request)) {
-    return new NextResponse("Unauthorized", { status: 401 });
+    return new NextResponse(null, { status: 401 });
   }
   const result = await drainBatch(3);
   return NextResponse.json(result);

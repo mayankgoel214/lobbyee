@@ -152,9 +152,8 @@ ${lines}
 Write a 2-3 sentence overall summary addressed directly to the staff member ("you"): lead with their clearest strength, then name the single highest-leverage thing to practice next. Warm, specific, no bullet points, no scores. Return JSON: {"summary": "..."}`;
 }
 
-export const COMPETENCY_LABELS: Record<CompetencyKey, string> = {
-  empathy: RUBRICS.empathy.label,
-  clarity: RUBRICS.clarity.label,
-  problem_solving: RUBRICS.problem_solving.label,
-  professionalism: RUBRICS.professionalism.label,
-};
+export const COMPETENCY_LABELS: Record<CompetencyKey, string> =
+  Object.fromEntries(COMPETENCIES.map((c) => [c, RUBRICS[c].label])) as Record<
+    CompetencyKey,
+    string
+  >;

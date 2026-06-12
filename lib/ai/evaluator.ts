@@ -277,6 +277,9 @@ async function synthesizeOverall(results: CompetencyResult[]): Promise<string> {
     if (text) {
       const parsed = overallResponseSchema.safeParse(JSON.parse(text));
       if (parsed.success) return parsed.data.summary;
+      // Log so a regressing model doesn't silently degrade every summary
+      // to the deterministic fallback.
+      console.error("overall summary schema mismatch:", parsed.error.issues);
     }
   } catch (e) {
     console.error("overall summary synthesis failed:", e);

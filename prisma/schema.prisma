@@ -243,6 +243,8 @@ model Evaluation {
 model EvaluationEvidence {
   id           BigInt       @id @default(autoincrement())
   evaluationId String       @map("evaluation_id") @db.Uuid
+  // Denormalized for future indexing/aggregation ONLY — the RLS policy
+  // resolves visibility through evaluation → session, never this column.
   workspaceId  String       @map("workspace_id") @db.Uuid
   competency   Competency
   kind         EvidenceKind

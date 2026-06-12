@@ -2,29 +2,53 @@
 
 // "Feedback is being prepared" state. The evaluation usually lands within
 // ~30s of ending a session (inline after() trigger), so poll by refreshing
-// the server component for two minutes, then stop and level with the user.
+// the server component — with backoff (5s → 10s → 20s) and a pause while the
+// tab is hidden, since every refresh re-runs the whole transcript query.
+// After two minutes of visible waiting, stop and level with the user.
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
-const POLL_MS = 5_000;
+const POLL_STEPS_MS = [5_000, 5_000, 5_000, 10_000, 10_000, 20_000];
 const GIVE_UP_MS = 120_000;
 
 export function PendingFeedback() {
   const router = useRouter();
   const [waitedTooLong, setWaitedTooLong] = useState(false);
-  const startedAt = useRef<number | null>(null);
 
   useEffect(() => {
-    startedAt.current ??= Date.now();
-    const timer = setInterval(() => {
-      if (Date.now() - (startedAt.current ?? 0) > GIVE_UP_MS) {
-        setWaitedTooLong(true);
-        clearInterval(timer);
-        return;
-      }
-      router.refresh();
-    }, POLL_MS);
-    return () => clearInterval(timer);
+    const startedAt = Date.now();
+    let tick = 0;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let cancelled = false;
+
+    const schedule = () => {
+      if (cancelled) return;
+      const delay =
+        POLL_STEPS_MS[Math.min(tick, POLL_STEPS_MS.length - 1)] ?? 20_000;
+      timer = setTimeout(() => {
+        if (cancelled) return;
+        if (Date.now() - startedAt > GIVE_UP_MS) {
+          setWaitedTooLong(true);
+          return;
+        }
+        tick += 1;
+        if (!document.hidden) router.refresh();
+        schedule();
+      }, delay);
+    };
+    schedule();
+
+    // Refresh immediately when the user comes back to the tab.
+    const onVisible = () => {
+      if (!document.hidden && !cancelled) router.refresh();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, [router]);
 
   return (

@@ -153,7 +153,11 @@ describe.skipIf(!hasDb)("evaluation engine tenant isolation (RLS)", () => {
       include: { evidence: true },
     });
     evaluationId = evaluation.id;
-    evidenceId = evaluation.evidence[0]?.id ?? BigInt(0);
+    // Fail loudly if the nested create silently dropped the evidence row —
+    // a BigInt(0) fallback would make every evidence test pass vacuously.
+    const firstEvidence = evaluation.evidence[0];
+    if (!firstEvidence) throw new Error("seed evidence row was not created");
+    evidenceId = firstEvidence.id;
   });
 
   afterAll(async () => {

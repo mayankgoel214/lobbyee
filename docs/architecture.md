@@ -62,7 +62,7 @@ graph TB
 | **Pipecat Cloud** | Long-running WebRTC + per-turn LLM loop | Vercel cannot. Pipecat Cloud is right for a solo founder: managed scale-to-zero, no K8s, pipeline graph in plain Python. LiveKit Agents on LiveKit Cloud is the runner-up — pick if multi-participant is ever needed. |
 | Deepgram Nova-3 | Streaming STT | Cheapest at sub-300ms TTFP in 2026. |
 | Cartesia Sonic | Streaming TTS | ~40ms TTFB beats ElevenLabs Flash; ElevenLabs kept as voice-fallback behind a flag. |
-| Google Gemini | Guest (3 Flash), evaluator (TBD Phase 2), mood updater (3.1 Flash-Lite) | **Provider decision 2026-06-11**: chosen over Anthropic/OpenAI for the free dev tier + lowest production price ($0.50/$3 Flash vs $3/$15 Sonnet-class). Implicit context caching is automatic. Claude/Claude-class model references elsewhere in this doc read as their Gemini equivalents; revisit per-model at Phase 2 (evaluator quality) with transcript benchmarks. |
+| Google Gemini | Guest (3 Flash), evaluator (3 Flash — the verbatim validator does the heavy lifting, revisit against the gold set), mood updater (3.1 Flash-Lite) | **Provider decision 2026-06-11**: chosen over Anthropic/OpenAI for the free dev tier + lowest production price ($0.50/$3 Flash vs $3/$15 Sonnet-class). Implicit context caching is automatic. Claude/Claude-class model references elsewhere in this doc read as their Gemini equivalents; revisit per-model at Phase 2 (evaluator quality) with transcript benchmarks. |
 | Stripe | Per-workspace flat plan + session cap | Default. |
 | Sentry / PostHog / Langfuse | Errors / product funnels / LLM tracing+eval datasets | Langfuse is load-bearing — the evaluator is the product moat. |
 
@@ -432,17 +432,24 @@ When the worker sees `session.status → completed` (user hangs up, or 90s silen
 - The job is batchable and slow (10–30s is fine).
 - `FOR UPDATE SKIP LOCKED` on Postgres is a textbook pattern that interviews well: *"I used Postgres as a queue because the work was low-throughput and idempotent; Inngest/Trigger.dev would have been over-engineering."*
 
-Cron tick (1 min) hits `/api/internal/eval/drain` (Bearer `${CRON_SECRET}`):
+**As built (2026-06-12, adapted for the Vercel Hobby plan):** Hobby cron runs at most once daily, so a 1-minute tick isn't available. The trigger order is therefore:
+1. **Primary** — `endSessionAction` enqueues the row, then evaluates inline via `next/server` `after()` (runs post-response; the trainee never waits, feedback lands ~15-30s after they hang up).
+2. **Self-heal** — rendering a completed transcript with no evaluation lazily re-fires the same path (covers a crash/deploy between end and eval).
+3. **Backstop** — daily cron (06:00 UTC, `vercel.json`) hits `/api/internal/eval/drain` (Bearer `${CRON_SECRET}`), which also backfills queue rows for completed sessions that lost theirs.
+
+All three converge on the same **single-statement lease claim** — no transaction held across LLM calls (pgbouncer-friendly), and a visibility timeout instead of a lock:
 
 ```sql
-BEGIN;
-SELECT session_id FROM pending_evaluation
+UPDATE pending_evaluation
+SET next_attempt_at = now() + interval '3 minutes'   -- the lease
+WHERE session_id IN (
+  SELECT session_id FROM pending_evaluation
   WHERE next_attempt_at <= now() AND attempts < 5
-  ORDER BY next_attempt_at LIMIT 5 FOR UPDATE SKIP LOCKED;
--- process, COMMIT per session
+  ORDER BY next_attempt_at LIMIT 3 FOR UPDATE SKIP LOCKED)
+RETURNING session_id;
 ```
 
-At >5k sessions/day, swap in Inngest — nothing else changes.
+Concurrent triggers are safe end-to-end: the lease deduplicates claims, and `Evaluation.sessionId UNIQUE` makes a double-write a no-op. On failure: `attempts++`, exponential backoff (2→16 min); at 5 attempts the row stays put as a visible dead letter (Sentry alert when Phase 4 wires it). On a paid plan, restore the 1-minute cron tick; at >5k sessions/day, swap in Inngest — nothing else changes.
 
 ### 6c. The evaluator itself
 

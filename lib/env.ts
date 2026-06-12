@@ -27,6 +27,11 @@ const schema = z.object({
   // clear error at first use if missing.
   GEMINI_API_KEY: z.string().min(1).optional(),
 
+  // Evaluation engine (Phase 2). Shared secret for the cron drain endpoint —
+  // Vercel sends it as `Authorization: Bearer ...` on cron invocations. The
+  // route rejects everything (401) until it's configured.
+  CRON_SECRET: z.string().min(32).optional(),
+
   NODE_ENV: z
     .enum(["development", "test", "production"])
     .default("development"),

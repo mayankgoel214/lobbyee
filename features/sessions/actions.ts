@@ -5,7 +5,8 @@ import { after } from "next/server";
 import { z } from "zod";
 import { generateGuestReply, OPENING_CUE, type Turn } from "@/lib/ai/guest";
 import { isMoodVector, type MoodVector, updateMood } from "@/lib/ai/mood";
-import { requireMembership, requireUser } from "@/lib/auth/session";
+import { isAdmin, requireMembership, requireUser } from "@/lib/auth/session";
+import { claimSessionSlot, releaseSessionSlot } from "@/lib/billing/cap";
 import { dbAdmin } from "@/lib/db/admin";
 import { dbForRequest } from "@/lib/db/scoped";
 import { drainSession, enqueueEvaluation } from "@/lib/eval/service";
@@ -55,7 +56,7 @@ export async function startSessionAction(
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
   const { slug, personaId, scenarioId } = parsed.data;
-  const { user, workspace } = await requireMembership(slug);
+  const { user, workspace, membership } = await requireMembership(slug);
   const db = dbForRequest(user.id);
 
   // Scoped reads — RLS proves the persona belongs to this workspace and the
@@ -96,6 +97,23 @@ export async function startSessionAction(
     ? persona.baselineMood
     : { frustration: 50, trust: 50, patience: 50, satisfaction: 50 };
 
+  // Workspace session cap (architecture §7b) — one atomic conditional
+  // increment, claimed BEFORE any model spend. Released on every failure
+  // path below so a trainee never pays for our errors.
+  const slot = await claimSessionSlot(workspace.id);
+  if (!slot.ok) {
+    if (slot.plan === "trial") {
+      return {
+        error: isAdmin(membership.role)
+          ? `Your workspace has used all ${slot.cap} free trial sessions — upgrade on the Billing page to keep training.`
+          : `Your workspace has used all ${slot.cap} free trial sessions — ask your manager about upgrading.`,
+      };
+    }
+    return {
+      error: `Your workspace reached its ${slot.cap}-session limit for this billing period.`,
+    };
+  }
+
   // Resolve the prompt version BEFORE paying for a model call — it also
   // validates DB connectivity cheaply.
   const pvId = await promptVersionId();
@@ -112,22 +130,30 @@ export async function startSessionAction(
     });
   } catch (e) {
     console.error("session opening failed:", e);
+    await releaseSessionSlot(workspace.id).catch(() => {});
     return {
       error:
         "Couldn't reach the guest simulator. Check that the AI key is configured, then try again.",
     };
   }
 
-  const session = await db.session.create({
-    data: {
-      workspaceId: workspace.id,
-      personaId,
-      scenarioId,
-      userId: user.id,
-      promptVersionId: pvId,
-      currentMood: mood,
-    },
-  });
+  let session: { id: string };
+  try {
+    session = await db.session.create({
+      data: {
+        workspaceId: workspace.id,
+        personaId,
+        scenarioId,
+        userId: user.id,
+        promptVersionId: pvId,
+        currentMood: mood,
+      },
+    });
+  } catch (e) {
+    console.error("session create failed:", e);
+    await releaseSessionSlot(workspace.id).catch(() => {});
+    return { error: "Couldn't start the session — try again." };
+  }
   try {
     await db.message.create({
       data: {
@@ -149,6 +175,8 @@ export async function startSessionAction(
         data: { status: "errored", endedAt: new Date() },
       })
       .catch(() => {});
+    // An errored session shouldn't count against the workspace cap.
+    await releaseSessionSlot(workspace.id).catch(() => {});
     return { error: "Couldn't start the session — try again." };
   }
 

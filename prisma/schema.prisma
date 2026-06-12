@@ -39,6 +39,9 @@ model Workspace {
   stripeCustomerId  String?      @unique @map("stripe_customer_id")
   createdAt         DateTime     @default(now()) @map("created_at")
   memberships       Membership[]
+  personas          Persona[]
+  scenarios         Scenario[]
+  sessions          Session[]
 
   @@map("workspace")
 }
@@ -69,4 +72,120 @@ model Membership {
   @@unique([workspaceId, userId])
   @@index([userId])
   @@map("membership")
+}
+
+// ---------------------------------------------------------------------------
+// Phase 1 — conversation engine (docs/architecture.md §4–5)
+// ---------------------------------------------------------------------------
+
+enum SessionStatus {
+  in_progress
+  completed
+  abandoned
+  errored
+}
+
+enum Modality {
+  voice
+  text
+}
+
+enum TurnRole {
+  user
+  guest
+  system
+  coach
+}
+
+enum PromptKind {
+  guest_system
+  mood_update
+}
+
+// The "who" — a reusable guest identity. Workspace-scoped (managers author
+// them via the constrained form — never a raw prompt field).
+model Persona {
+  id           String    @id @default(uuid()) @db.Uuid
+  workspaceId  String    @map("workspace_id") @db.Uuid
+  name         String
+  guestType    String    @map("guest_type")
+  backstory    String
+  voiceId      String?   @map("voice_id")
+  baselineMood Json      @map("baseline_mood")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  sessions     Session[]
+
+  @@index([workspaceId])
+  @@map("persona")
+}
+
+// The "what" — a situation + success criteria. Library scenarios have
+// workspace_id NULL and are readable by every workspace.
+model Scenario {
+  id              String    @id @default(uuid()) @db.Uuid
+  workspaceId     String?   @map("workspace_id") @db.Uuid
+  title           String
+  situation       String
+  difficulty      Int
+  successCriteria Json      @map("success_criteria")
+  isLibrary       Boolean   @default(false) @map("is_library")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  workspace       Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  sessions        Session[]
+
+  @@index([workspaceId])
+  @@map("scenario")
+}
+
+model Session {
+  id              String        @id @default(uuid()) @db.Uuid
+  workspaceId     String        @map("workspace_id") @db.Uuid
+  personaId       String        @map("persona_id") @db.Uuid
+  scenarioId      String        @map("scenario_id") @db.Uuid
+  userId          String        @map("user_id") @db.Uuid
+  promptVersionId String        @map("prompt_version_id") @db.Uuid
+  status          SessionStatus @default(in_progress)
+  modality        Modality      @default(text)
+  currentMood     Json          @map("current_mood")
+  startedAt       DateTime      @default(now()) @map("started_at")
+  endedAt         DateTime?     @map("ended_at")
+  workspace       Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  persona         Persona       @relation(fields: [personaId], references: [id])
+  scenario        Scenario      @relation(fields: [scenarioId], references: [id])
+  promptVersion   PromptVersion @relation(fields: [promptVersionId], references: [id])
+  messages        Message[]
+
+  @@index([workspaceId, userId, startedAt])
+  @@map("session")
+}
+
+// Transcript turns — immutable by design (no UPDATE/DELETE grants or policies).
+model Message {
+  id           BigInt   @id @default(autoincrement())
+  sessionId    String   @map("session_id") @db.Uuid
+  workspaceId  String   @map("workspace_id") @db.Uuid // denormalized for RLS
+  turnIndex    Int      @map("turn_index")
+  role         TurnRole
+  text         String
+  moodSnapshot Json?    @map("mood_snapshot")
+  createdAt    DateTime @default(now()) @map("created_at")
+  session      Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, turnIndex])
+  @@index([workspaceId])
+  @@map("message")
+}
+
+// Registry of prompt template versions (templates live in prompts/ as code;
+// every session records which version produced it — reproducibility).
+model PromptVersion {
+  id        String     @id @default(uuid()) @db.Uuid
+  kind      PromptKind
+  version   String
+  createdAt DateTime   @default(now()) @map("created_at")
+  sessions  Session[]
+
+  @@unique([kind, version])
+  @@map("prompt_version")
 }

@@ -177,7 +177,12 @@ async function evaluateCompetency(input: {
       ],
       config: {
         systemInstruction: system,
-        maxOutputTokens: 2048,
+        // The preview model's thinking tokens bill against this same cap;
+        // measured competency responses average ~1.6k tokens INCLUDING
+        // thought, so 2048 truncated the tail of the distribution mid-JSON
+        // (live prod failures, 2026-06-12). Headroom is free — output is
+        // billed by tokens consumed, not by the cap.
+        maxOutputTokens: 8192,
         temperature: 0.2,
         responseMimeType: "application/json",
         responseSchema: competencyGeminiSchema,
@@ -201,7 +206,16 @@ async function evaluateCompetency(input: {
     try {
       parsed = competencyResponseSchema.parse(JSON.parse(text));
     } catch (e) {
-      console.error(`evaluator(${input.competency}) schema mismatch:`, e);
+      // finishReason + a tail snippet make truncation vs. malformed-JSON
+      // diagnosable straight from the log line.
+      console.error(
+        `evaluator(${input.competency}) schema mismatch — finishReason:`,
+        response.candidates?.[0]?.finishReason,
+        "tail:",
+        JSON.stringify(text.slice(-120)),
+        "error:",
+        e,
+      );
       correctiveNote =
         "Your previous response did not match the required JSON schema. Return exactly: score (integer 1-5), summary (string), evidence (array, max 6 items of {kind, messageId, quote, rationale}).";
       continue;

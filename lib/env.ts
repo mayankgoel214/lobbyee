@@ -23,6 +23,10 @@ const schema = z.object({
   NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1).optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
 
+  // Conversation engine (Phase 1). Optional at boot — the engine throws a
+  // clear error at first use if missing.
+  ANTHROPIC_API_KEY: z.string().min(1).optional(),
+
   NODE_ENV: z
     .enum(["development", "test", "production"])
     .default("development"),

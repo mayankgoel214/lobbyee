@@ -1,7 +1,9 @@
-// Model routing (docs/architecture.md §7c): the guest needs personality
-// coherence at conversational latency — Sonnet. Mood transitions are
-// mechanical — Haiku. The evaluator (Phase 2) gets its own entry.
+// Model routing (docs/architecture.md §7c, provider decision 2026-06-11:
+// Gemini — free dev tier, lowest production price). The guest needs
+// personality coherence at conversational latency; mood transitions are
+// mechanical and go to the cheapest model. The evaluator (Phase 2) gets its
+// own entry when it lands.
 export const MODELS = {
-  guest: "claude-sonnet-4-6",
-  mood: "claude-haiku-4-5",
+  guest: "gemini-3-flash-preview",
+  mood: "gemini-3.1-flash-lite",
 } as const;

@@ -1,16 +1,16 @@
 import "server-only";
-import Anthropic from "@anthropic-ai/sdk";
+import { GoogleGenAI } from "@google/genai";
 import { env } from "@/lib/env";
 
-let client: Anthropic | undefined;
+let client: GoogleGenAI | undefined;
 
-export function anthropic(): Anthropic {
-  if (!env.ANTHROPIC_API_KEY) {
+export function gemini(): GoogleGenAI {
+  if (!env.GEMINI_API_KEY) {
     throw new Error(
-      "ANTHROPIC_API_KEY is not configured — the conversation engine needs it. " +
-        "Get one at console.anthropic.com and add it to .env.local / Vercel env.",
+      "GEMINI_API_KEY is not configured — the conversation engine needs it. " +
+        "Get a free key at aistudio.google.com/apikey and add it to .env.local / Vercel env.",
     );
   }
-  client ??= new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
+  client ??= new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
   return client;
 }

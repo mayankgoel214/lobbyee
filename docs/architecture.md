@@ -62,7 +62,7 @@ graph TB
 | **Pipecat Cloud** | Long-running WebRTC + per-turn LLM loop | Vercel cannot. Pipecat Cloud is right for a solo founder: managed scale-to-zero, no K8s, pipeline graph in plain Python. LiveKit Agents on LiveKit Cloud is the runner-up — pick if multi-participant is ever needed. |
 | Deepgram Nova-3 | Streaming STT | Cheapest at sub-300ms TTFP in 2026. |
 | Cartesia Sonic | Streaming TTS | ~40ms TTFB beats ElevenLabs Flash; ElevenLabs kept as voice-fallback behind a flag. |
-| Anthropic Claude | Guest (Sonnet), evaluator (Sonnet), mood updater (Haiku) | Prompt caching on persona system block cuts ~70% input cost across a session. One vendor → one set of keys, billing, eval baselines. |
+| Google Gemini | Guest (3 Flash), evaluator (TBD Phase 2), mood updater (3.1 Flash-Lite) | **Provider decision 2026-06-11**: chosen over Anthropic/OpenAI for the free dev tier + lowest production price ($0.50/$3 Flash vs $3/$15 Sonnet-class). Implicit context caching is automatic. Claude/Claude-class model references elsewhere in this doc read as their Gemini equivalents; revisit per-model at Phase 2 (evaluator quality) with transcript benchmarks. |
 | Stripe | Per-workspace flat plan + session cap | Default. |
 | Sentry / PostHog / Langfuse | Errors / product funnels / LLM tracing+eval datasets | Langfuse is load-bearing — the evaluator is the product moat. |
 

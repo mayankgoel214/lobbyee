@@ -1,15 +1,15 @@
 // The guest reply — one turn of the conversation loop
 // (docs/architecture.md §5b). Mood is injected into the USER message, never
-// the system block, so the system stays byte-identical across turns
-// (cacheable; note Sonnet 4.6's minimum cacheable prefix is ~2048 tokens —
-// short personas won't cache yet, which is fine and costs nothing extra).
+// the system instruction, so the system stays byte-identical across turns
+// (Gemini applies implicit context caching automatically when prefixes
+// repeat — same reason, no markers needed).
 import "server-only";
 import {
   type PersonaForPrompt,
   renderGuestSystem,
   type ScenarioForPrompt,
 } from "@/prompts/guest-system";
-import { anthropic } from "./client";
+import { gemini } from "./client";
 import { MODELS } from "./models";
 import type { MoodVector } from "./mood";
 
@@ -28,34 +28,27 @@ export async function generateGuestReply(input: {
 }): Promise<string> {
   const system = renderGuestSystem(input.persona, input.scenario);
 
-  const messages = [
+  const contents = [
     ...input.history.map((t) => ({
-      role: t.role === "guest" ? ("assistant" as const) : ("user" as const),
-      content: t.text,
+      role: t.role === "guest" ? ("model" as const) : ("user" as const),
+      parts: [{ text: t.text }],
     })),
     {
       role: "user" as const,
-      content: `${moodNote(input.mood)}\n\n${input.userText}`,
+      parts: [{ text: `${moodNote(input.mood)}\n\n${input.userText}` }],
     },
   ];
 
-  const response = await anthropic().messages.create({
+  const response = await gemini().models.generateContent({
     model: MODELS.guest,
-    max_tokens: 1024,
-    // Conversational latency matters more than depth here; Sonnet 4.6
-    // defaults to high effort, which is wrong for a 2-sentence guest reply.
-    output_config: { effort: "low" },
-    system: [
-      { type: "text", text: system, cache_control: { type: "ephemeral" } },
-    ],
-    messages,
+    contents,
+    config: {
+      systemInstruction: system,
+      maxOutputTokens: 1024,
+    },
   });
 
-  const text = response.content
-    .filter((b) => b.type === "text")
-    .map((b) => b.text)
-    .join("")
-    .trim();
+  const text = response.text?.trim();
   if (!text) throw new Error("guest model returned no text");
   return text;
 }

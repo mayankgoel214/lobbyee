@@ -1,13 +1,14 @@
 // Mood vector — the explicit state that makes the guest feel responsive
-// (docs/architecture.md §5b). Updated each turn by a small Haiku call with
-// structured output; the guest model never invents its own mood.
+// (docs/architecture.md §5b). Updated each turn by a small Flash-Lite call
+// with a constrained JSON response; the guest model never invents its own
+// mood.
 import "server-only";
 import { z } from "zod";
 import {
   MOOD_UPDATE_VERSION,
   renderMoodUpdatePrompt,
 } from "@/prompts/mood-update";
-import { anthropic } from "./client";
+import { gemini } from "./client";
 import { MODELS } from "./models";
 
 export type MoodVector = {
@@ -46,30 +47,29 @@ export async function updateMood(input: {
   userText: string;
 }): Promise<MoodVector> {
   try {
-    const response = await anthropic().messages.create({
+    const response = await gemini().models.generateContent({
       model: MODELS.mood,
-      max_tokens: 256,
-      output_config: {
-        format: {
-          type: "json_schema",
-          schema: {
-            type: "object",
-            properties: {
-              frustration: { type: "number" },
-              trust: { type: "number" },
-              patience: { type: "number" },
-              satisfaction: { type: "number" },
-            },
-            required: ["frustration", "trust", "patience", "satisfaction"],
-            additionalProperties: false,
+      contents: [
+        { role: "user", parts: [{ text: renderMoodUpdatePrompt(input) }] },
+      ],
+      config: {
+        maxOutputTokens: 256,
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: "object",
+          properties: {
+            frustration: { type: "number" },
+            trust: { type: "number" },
+            patience: { type: "number" },
+            satisfaction: { type: "number" },
           },
+          required: ["frustration", "trust", "patience", "satisfaction"],
         },
       },
-      messages: [{ role: "user", content: renderMoodUpdatePrompt(input) }],
     });
-    const block = response.content.find((b) => b.type === "text");
-    if (block?.type !== "text") return input.prevMood;
-    const parsed = moodVectorSchema.safeParse(JSON.parse(block.text));
+    const text = response.text;
+    if (!text) return input.prevMood;
+    const parsed = moodVectorSchema.safeParse(JSON.parse(text));
     if (!parsed.success) return input.prevMood;
     return clampMood(parsed.data);
   } catch (e) {

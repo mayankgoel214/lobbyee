@@ -25,7 +25,7 @@ const schema = z.object({
 
   // Conversation engine (Phase 1). Optional at boot — the engine throws a
   // clear error at first use if missing.
-  ANTHROPIC_API_KEY: z.string().min(1).optional(),
+  GEMINI_API_KEY: z.string().min(1).optional(),
 
   NODE_ENV: z
     .enum(["development", "test", "production"])

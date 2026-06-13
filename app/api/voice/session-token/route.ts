@@ -67,9 +67,10 @@ export async function POST(request: Request) {
     secret,
   );
 
-  return NextResponse.json({
-    token,
-    sessionId: body.sessionId,
-    snapshot: loaded.snapshot,
-  });
+  // Return ONLY the token to the client. The conversation snapshot (which
+  // includes the scenario's success criteria — the rubric the trainee is
+  // graded against — and coach hints) must never reach the trainee's browser.
+  // The worker fetches the snapshot itself via a token-authenticated endpoint
+  // (the next M2 piece), so the rubric flows app→worker, never app→client.
+  return NextResponse.json({ token, sessionId: body.sessionId });
 }

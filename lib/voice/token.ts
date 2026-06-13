@@ -11,7 +11,14 @@
 import "server-only";
 import { createHmac, timingSafeEqual } from "node:crypto";
 
+// Binds the token to this purpose. If VOICE_SESSION_TOKEN_SECRET ever gets
+// reused for another HMAC token, the `aud` mismatch keeps the two from being
+// cross-redeemable (defense in depth — the secret should stay dedicated).
+const AUDIENCE = "voice-session";
+
 export type VoiceTokenClaims = {
+  /** Audience — always AUDIENCE; verified on read. */
+  aud: string;
   /** The session this token authorizes — writes are scoped to it. */
   sessionId: string;
   /** Tenant, carried so the worker never has to infer it. */
@@ -28,21 +35,21 @@ function b64url(buf: Buffer): string {
   return buf.toString("base64url");
 }
 
-/** Mint a token authorizing voice persistence for one session. `nowSeconds` is
- *  injectable so callers/tests stay deterministic (the runtime has no clock in
- *  some sandboxes). */
+/** Mint a token authorizing voice persistence for one session. Expiry is
+ *  controlled only by ttl (callers can't mint a long-lived token). `nowSeconds`
+ *  is injectable so callers/tests stay deterministic. */
 export function signVoiceToken(
-  claims: Omit<VoiceTokenClaims, "exp"> & { exp?: number },
+  claims: { sessionId: string; workspaceId: string; userId: string },
   secret: string,
   opts?: { nowSeconds?: number; ttlSeconds?: number },
 ): string {
   const now = opts?.nowSeconds ?? Math.floor(Date.now() / 1000);
-  const exp = claims.exp ?? now + (opts?.ttlSeconds ?? DEFAULT_TTL_SECONDS);
   const body: VoiceTokenClaims = {
+    aud: AUDIENCE,
     sessionId: claims.sessionId,
     workspaceId: claims.workspaceId,
     userId: claims.userId,
-    exp,
+    exp: now + (opts?.ttlSeconds ?? DEFAULT_TTL_SECONDS),
   };
   const bodyB64 = b64url(Buffer.from(JSON.stringify(body), "utf8"));
   const sig = b64url(createHmac("sha256", secret).update(bodyB64).digest());
@@ -80,6 +87,7 @@ export function verifyVoiceToken(
     return { ok: false, reason: "malformed" };
   }
   if (
+    claims?.aud !== AUDIENCE ||
     typeof claims?.sessionId !== "string" ||
     typeof claims?.workspaceId !== "string" ||
     typeof claims?.userId !== "string" ||

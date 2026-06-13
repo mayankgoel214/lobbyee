@@ -39,6 +39,9 @@ const startSchema = z.object({
   slug: z.string().min(1),
   personaId: z.string().uuid("Pick a guest persona"),
   scenarioId: z.string().uuid("Pick a scenario"),
+  // Phase 5 M4: which modality to train in. Defaults to text; voice is gated
+  // on the workspace flag below.
+  modality: z.enum(["text", "voice"]).default("text"),
 });
 
 const turnSchema = z.object({
@@ -73,9 +76,16 @@ export async function startSessionAction(
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
-  const { slug, personaId, scenarioId } = parsed.data;
+  const { slug, personaId, scenarioId, modality } = parsed.data;
   const { user, workspace, membership } = await requireMembership(slug);
   const db = dbForRequest(user.id);
+
+  // Voice is gated per-workspace (Phase 5 M4) and dark by default. Belt-and-
+  // suspenders: the start form only offers Voice when the flag is on, but never
+  // trust the client — a forged formData can't open a voice session here.
+  if (modality === "voice" && !workspace.voiceEnabled) {
+    return { error: "Voice training isn't enabled for this workspace yet." };
+  }
 
   // Scoped reads — RLS proves the persona belongs to this workspace and the
   // scenario is either workspace-owned or a library scenario.
@@ -181,6 +191,7 @@ export async function startSessionAction(
         scenarioId,
         userId: user.id,
         promptVersionId: pvId,
+        modality,
         currentMood: mood,
       },
     });

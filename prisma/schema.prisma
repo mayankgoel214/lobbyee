@@ -41,6 +41,9 @@ model Workspace {
   // migration 4 tightens the workspace UPDATE grant to (name, industry) so
   // billing columns are service-path only.
   sessionsUsedThisPeriod Int     @default(0) @map("sessions_used_this_period")
+  // Phase 5 M4: gates the in-app voice training UI per workspace. Default off —
+  // voice stays dark until explicitly enabled (and a worker host exists).
+  voiceEnabled      Boolean      @default(false) @map("voice_enabled")
   stripeCustomerId  String?      @unique @map("stripe_customer_id")
   createdAt         DateTime     @default(now()) @map("created_at")
   memberships       Membership[]

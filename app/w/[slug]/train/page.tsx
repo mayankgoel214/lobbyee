@@ -47,6 +47,7 @@ export default async function TrainPage({
       ) : (
         <StartSessionForm
           slug={slug}
+          voiceEnabled={workspace.voiceEnabled}
           personas={personas.map((p) => ({
             id: p.id,
             name: p.name,

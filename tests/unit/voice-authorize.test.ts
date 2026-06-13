@@ -3,7 +3,16 @@
 // voice-token.test.ts; here we lock in the HTTP-facing contract: secret
 // missing → 503, anything wrong with the header/token → an opaque 401, and a
 // good token → the verified claims (which downstream code trusts over the body).
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+// Pin env so the "voice not configured" (503) case is deterministic — it must
+// not depend on whether this environment happens to have
+// VOICE_SESSION_TOKEN_SECRET set (e.g. a dev .env.local). Every other test
+// passes an explicit secret and so never reads env.
+vi.mock("@/lib/env", () => ({
+  env: { VOICE_SESSION_TOKEN_SECRET: undefined },
+}));
+
 import { authorizeVoiceRequest } from "@/lib/voice/authorize";
 import { signVoiceToken } from "@/lib/voice/token";
 

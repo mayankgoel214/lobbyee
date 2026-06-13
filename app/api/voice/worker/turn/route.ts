@@ -25,8 +25,10 @@ export const dynamic = "force-dynamic";
 const bodySchema = z.object({
   // The worker generates one uuid per turn; it anchors idempotency.
   idempotencyKey: z.string().uuid(),
-  userText: z.string().min(1).max(4000),
-  guestText: z.string().min(1).max(8000),
+  // trim() first so a whitespace-only turn can't anchor an empty-looking row
+  // that still feeds the evaluator.
+  userText: z.string().trim().min(1).max(4000),
+  guestText: z.string().trim().min(1).max(8000),
   mood: moodVectorSchema,
   coachHint: z.string().max(2000).nullish(),
 });

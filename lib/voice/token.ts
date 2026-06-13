@@ -30,6 +30,9 @@ export type VoiceTokenClaims = {
 };
 
 const DEFAULT_TTL_SECONDS = 60 * 60; // 1h — covers a long training session
+// Hard ceiling so no caller (or future refactor) can mint a long-lived bearer
+// token. A voice session never needs more than a few hours.
+const MAX_TTL_SECONDS = 4 * 60 * 60;
 
 function b64url(buf: Buffer): string {
   return buf.toString("base64url");
@@ -44,12 +47,16 @@ export function signVoiceToken(
   opts?: { nowSeconds?: number; ttlSeconds?: number },
 ): string {
   const now = opts?.nowSeconds ?? Math.floor(Date.now() / 1000);
+  const ttl = opts?.ttlSeconds ?? DEFAULT_TTL_SECONDS;
+  if (!Number.isFinite(ttl) || ttl <= 0 || ttl > MAX_TTL_SECONDS) {
+    throw new Error(`voice token ttl must be 1..${MAX_TTL_SECONDS} seconds`);
+  }
   const body: VoiceTokenClaims = {
     aud: AUDIENCE,
     sessionId: claims.sessionId,
     workspaceId: claims.workspaceId,
     userId: claims.userId,
-    exp: now + (opts?.ttlSeconds ?? DEFAULT_TTL_SECONDS),
+    exp: now + ttl,
   };
   const bodyB64 = b64url(Buffer.from(JSON.stringify(body), "utf8"));
   const sig = b64url(createHmac("sha256", secret).update(bodyB64).digest());

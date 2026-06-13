@@ -44,6 +44,14 @@ describe("voice token round-trip", () => {
     const res = verifyVoiceToken(token, SECRET, { nowSeconds: NOW });
     expect(res.ok && res.claims.exp).toBe(NOW + 120);
   });
+
+  it("refuses to mint a token with an out-of-range ttl", () => {
+    for (const ttlSeconds of [0, -1, 5 * 60 * 60]) {
+      expect(() =>
+        signVoiceToken(claims, SECRET, { nowSeconds: NOW, ttlSeconds }),
+      ).toThrow(/ttl/);
+    }
+  });
 });
 
 describe("voice token rejection", () => {

@@ -102,8 +102,48 @@ Notes: `LOBBYEE_BASE_URL` defaults to `http://localhost:3000` (point it at the
 tunnel/prod URL if the app isn't local). `VOICE_GUEST_MODEL` defaults to
 `gemini-2.5-flash` — switch to the app's guest model once parity is confirmed.
 
-## After M3
+## M4 — in-app voice screen (`feat/voice-ui`)
 
-M4 = Lobbyee's own in-app voice screen (replaces the quickstart `/client` UI,
-behind the `voice_enabled` flag) + the session-creation-for-voice flow. M5 =
-installed-PWA exit gate on a real iPhone. M6 = audio persistence.
+Lobbyee's own voice UI (`features/sessions/voice-room.tsx`) connects the
+browser's mic straight to this worker over WebRTC — no more `/client` test page.
+The worker is unchanged: it's still bound to one session via its env token (same
+shape a per-session worker gets in prod), and the browser only carries audio.
+
+### Test it end-to-end (local + phone)
+
+1. **Restart `pnpm dev`** — the `voice_enabled` column + the new
+   `NEXT_PUBLIC_PIPECAT_WORKER_URL` are only picked up on a fresh start.
+   - For a phone, set `NEXT_PUBLIC_PIPECAT_WORKER_URL` to the worker's tunnel
+     URL in `.env.local` before starting; on the same Mac, the default
+     `http://localhost:7860` is fine.
+2. **Enable voice** for your workspace (once):
+   `UPDATE workspace SET voice_enabled = true WHERE slug = '<your-slug>';`
+   (already done for `qa-test-hotel`).
+3. In the app: **Train → toggle Voice → Start session.** You land on the voice
+   screen. Copy the **sessionId** from the URL.
+4. **Start the worker for THAT session** (its token must match the open session):
+   ```bash
+   cd worker && source .venv/bin/activate
+   VOICE_SESSION_TOKEN=$(node scripts/mint.mjs <sessionId> <workspaceId> <userId>) python lobbyee_bot.py
+   ```
+   (Get workspaceId/userId from the session row, or reuse the values in the repo
+   memory for the test account.)
+5. Back in the app, tap **🎙️ Connect & talk**. The guest should speak its
+   opener, then converse; turns persist (check the transcript after **End**).
+
+### Known integration points to verify on the first live run
+
+- **CORS:** the app origin (`:3000`/tunnel) connecting to the worker
+  (`:7860`/tunnel) is cross-origin. If `Connect & talk` fails on a CORS error,
+  the worker's `/api/offer` needs `Access-Control-Allow-Origin` for the app
+  origin (small addition to the runner setup).
+- **Offer endpoint** path is assumed `/api/offer` (Pipecat SmallWebRTC default).
+- **Live coach strip:** the screen shows the *opening* hint; per-turn coach
+  updates during a call need the worker to push a message to the browser
+  (RTVI) — deferred follow-up.
+
+## After M4
+
+M5 = installed-PWA exit gate on a real iPhone + the production worker-hosting
+decision (per-connection tokens or a per-session spawner, since Pipecat Cloud
+needs a card). M6 = audio persistence + 90-day retention cron.

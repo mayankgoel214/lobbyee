@@ -15,7 +15,10 @@ import type { MoodVector } from "./mood";
 
 export type Turn = { role: "user" | "guest"; text: string };
 
-function moodNote(mood: MoodVector): string {
+/** The private stage-direction prefixed to each staff message so the guest's
+ *  tone tracks mood. Exported so the voice path can hand the worker a rendered
+ *  note (single source of truth — the worker never formats mood itself). */
+export function moodNote(mood: MoodVector): string {
   return `[Guest mood right now — frustration ${mood.frustration}/100, trust ${mood.trust}/100, patience ${mood.patience}/100, satisfaction ${mood.satisfaction}/100]`;
 }
 

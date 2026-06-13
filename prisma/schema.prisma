@@ -209,10 +209,17 @@ model Message {
   text         String
   moodSnapshot Json?    @map("mood_snapshot")
   createdAt    DateTime @default(now()) @map("created_at")
+  // Voice (Phase 5): set on the USER message that anchors a turn the Pipecat
+  // worker persists, so a retried write is idempotent (a duplicate replay hits
+  // the unique index instead of double-writing). Null for text-path messages.
+  // Scoped per-session (not global) so a key collision across tenants can't
+  // brick an unrelated session — see migration 6_voice_idempotency_per_session.
+  idempotencyKey String? @map("idempotency_key")
   session      Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   citedBy      EvaluationEvidence[]
 
   @@unique([sessionId, turnIndex])
+  @@unique([sessionId, idempotencyKey])
   @@index([workspaceId])
   @@map("message")
 }

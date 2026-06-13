@@ -38,6 +38,11 @@ const schema = z.object({
   STRIPE_WEBHOOK_SECRET: z.string().min(1).optional(),
   STRIPE_PRICE_ID: z.string().min(1).optional(),
 
+  // Voice (Phase 5). HMAC secret for the short-lived session token the
+  // worker presents back to the app. Min 32 chars like CRON_SECRET. The
+  // session-token route 503s until it's set, so voice is off by default.
+  VOICE_SESSION_TOKEN_SECRET: z.string().min(32).optional(),
+
   NODE_ENV: z
     .enum(["development", "test", "production"])
     .default("development"),

@@ -1,22 +1,27 @@
-// Worker → app: fetch the conversation snapshot for a voice session (Phase 5,
-// M2, docs/phase-5-plan.md). The Pipecat worker calls this once at the start
-// of a call with its session token; the response is everything the turn engine
-// needs to run the conversation — including the scenario's success criteria
-// (the grading rubric), which the engine feeds the coach and evaluator.
+// Worker → app: fetch what the worker needs to run a voice call (Phase 5, M3,
+// docs/phase-5-plan.md + lib/voice/wire-contract.md). The worker calls this
+// once at the start of a call with its session token and gets back the rendered
+// guest system prompt, the conversation so far, and the current mood (as a
+// rendered note). It feeds these to its STT→LLM→TTS pipeline.
 //
-// This rubric flows app → worker only. It must NEVER reach the trainee's
-// browser (see the comment in ../../session-token/route.ts); that's the whole
-// reason the worker fetches it here with its own token instead of receiving it
-// from the client at handshake.
+// Deliberately does NOT return the scenario's success criteria (the grading
+// rubric): with mood + coaching now computed app-side (see worker/turn), the
+// worker never needs the rubric, so it never leaves the app. The guest system
+// prompt is rendered here from the SAME prompts/ template the text path uses —
+// the worker holds no prompt logic of its own.
 //
-// SECURITY: the session + tenant are read from the VERIFIED token claims, never
-// from the request. The read is RLS-scoped to the token's trainee, so even a
-// bug here can't cross tenants. Re-checks status === in_progress so a token
-// minted for a since-ended session can't pull a live snapshot.
+// SECURITY: session + tenant come from the VERIFIED token claims, never the
+// request. The read is RLS-scoped to the token's trainee; re-checks
+// status === in_progress so a token for a since-ended session can't pull state.
 import { NextResponse } from "next/server";
+import { moodNote, OPENING_CUE } from "@/lib/ai/guest";
 import { dbForRequest } from "@/lib/db/scoped";
 import { authorizeVoiceRequest } from "@/lib/voice/authorize";
 import { loadVoiceSnapshot } from "@/lib/voice/snapshot";
+import {
+  GUEST_SYSTEM_VERSION,
+  renderGuestSystem,
+} from "@/prompts/guest-system";
 
 export const dynamic = "force-dynamic";
 
@@ -44,9 +49,20 @@ export async function GET(request: Request) {
     );
   }
 
-  // The worker consumes this directly as the engine's ConversationSnapshot.
+  const s = loaded.snapshot;
+  // Only the user/guest turns seed the LLM context; coach turns are internal.
+  const history = s.messages
+    .filter((m) => m.role === "user" || m.role === "guest")
+    .map((m) => ({ role: m.role, text: m.text }));
+
   return NextResponse.json({
     sessionId: claims.sessionId,
-    snapshot: loaded.snapshot,
+    guestSystemPrompt: renderGuestSystem(s.persona, s.scenario),
+    guestSystemVersion: GUEST_SYSTEM_VERSION,
+    // The guest speaks first — the worker prepends this if history is empty.
+    openingCue: OPENING_CUE,
+    currentMood: s.currentMood,
+    moodNote: moodNote(s.currentMood),
+    history,
   });
 }

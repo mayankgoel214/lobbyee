@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { Button, Card, FormError, Label } from "@/components/ui";
 import {
   type StartSessionState,
@@ -13,8 +13,11 @@ export function StartSessionForm({
   slug,
   personas,
   scenarios,
+  voiceEnabled = false,
 }: {
   slug: string;
+  // Phase 5 M4: when true, offer a Text/Voice toggle. Off → text only.
+  voiceEnabled?: boolean;
   personas: Array<{ id: string; name: string; guestType: string }>;
   scenarios: Array<{
     id: string;
@@ -24,6 +27,7 @@ export function StartSessionForm({
   }>;
 }) {
   const [state, action, pending] = useActionState(startSessionAction, initial);
+  const [modality, setModality] = useState<"text" | "voice">("text");
   const selectClass =
     "w-full rounded-xl border border-neutral-300 bg-white px-3.5 py-2.5 text-sm text-neutral-900 outline-none focus:border-neutral-500";
 
@@ -31,6 +35,7 @@ export function StartSessionForm({
     <Card>
       <form action={action} className="flex flex-col gap-4">
         <input type="hidden" name="slug" value={slug} />
+        <input type="hidden" name="modality" value={modality} />
         <div>
           <Label htmlFor="scenarioId">Scenario</Label>
           <select id="scenarioId" name="scenarioId" className={selectClass}>
@@ -52,12 +57,39 @@ export function StartSessionForm({
             ))}
           </select>
         </div>
+        {voiceEnabled && (
+          <div>
+            <Label>Mode</Label>
+            <div className="grid grid-cols-2 gap-2">
+              {(["text", "voice"] as const).map((m) => {
+                const active = modality === m;
+                return (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setModality(m)}
+                    aria-pressed={active}
+                    className={`rounded-xl border px-3.5 py-2.5 text-sm font-medium transition ${
+                      active
+                        ? "border-neutral-900 bg-neutral-900 text-white"
+                        : "border-neutral-300 bg-white text-neutral-700 hover:border-neutral-500"
+                    }`}
+                  >
+                    {m === "text" ? "💬 Text" : "🎙️ Voice"}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
         <FormError>{state.error}</FormError>
         <Button type="submit" disabled={pending}>
           {pending ? "The guest is on their way…" : "Start session"}
         </Button>
         <p className="text-center text-xs text-neutral-500">
-          Text session · the guest opens the conversation
+          {modality === "voice"
+            ? "Voice session · talk with the guest out loud · the guest opens"
+            : "Text session · the guest opens the conversation"}
         </p>
       </form>
     </Card>

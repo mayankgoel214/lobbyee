@@ -8,6 +8,7 @@ import {
 import { PendingFeedback } from "@/features/evaluations/pending";
 import { ChatSession } from "@/features/sessions/chat";
 import { MoodTimeline } from "@/features/sessions/mood-timeline";
+import { VoiceRoom } from "@/features/sessions/voice-room";
 import { isMoodVector } from "@/lib/ai/mood";
 import { requireMembership } from "@/lib/auth/session";
 import { dbForRequest } from "@/lib/db/scoped";
@@ -58,6 +59,17 @@ export default async function SessionPage({
     null;
 
   const live = session.status === "in_progress" && session.userId === user.id;
+  if (live && session.modality === "voice") {
+    return (
+      <VoiceRoom
+        slug={slug}
+        sessionId={session.id}
+        personaName={session.persona.name}
+        scenarioTitle={session.scenario.title}
+        initialHint={initialHint}
+      />
+    );
+  }
   if (live) {
     return (
       <ChatSession

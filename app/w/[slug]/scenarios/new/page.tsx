@@ -22,8 +22,10 @@ export default function NewScenarioPage({
 
   return (
     <main className="mx-auto max-w-xl p-6">
-      <h1 className="mb-1 text-xl font-semibold">New scenario</h1>
-      <p className="mb-5 text-sm text-neutral-500">
+      <h1 className="mb-1 text-xl font-semibold text-neutral-900">
+        New scenario
+      </h1>
+      <p className="mb-6 text-sm text-neutral-500">
         Written guest-agnostic — any persona can play it. The success criteria
         drive the coaching, so specific beats vague.
       </p>
@@ -49,7 +51,7 @@ export default function NewScenarioPage({
               rows={4}
               maxLength={1000}
               placeholder="The guest has just checked out. There's a $40 minibar charge on their folio they insist they didn't make…"
-              className="w-full rounded-xl border border-neutral-300 bg-white px-3.5 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none focus:border-neutral-500"
+              className="w-full rounded-lg border border-neutral-300 bg-white px-3.5 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none transition-colors focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20"
               required
             />
           </div>
@@ -76,7 +78,7 @@ export default function NewScenarioPage({
               placeholder={
                 "Acknowledge the frustration before explaining anything\nWalk through the charges line by line, together"
               }
-              className="w-full rounded-xl border border-neutral-300 bg-white px-3.5 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none focus:border-neutral-500"
+              className="w-full rounded-lg border border-neutral-300 bg-white px-3.5 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none transition-colors focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20"
               required
             />
           </div>

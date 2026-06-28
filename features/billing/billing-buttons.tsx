@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { Button, FormError } from "@/components/ui";
 import {
   type BillingActionState,
   openPortalAction,
@@ -15,18 +16,10 @@ export function SubscribeButton({ slug }: { slug: string }) {
   return (
     <form action={formAction}>
       <input type="hidden" name="slug" value={slug} />
-      <button
-        type="submit"
-        disabled={pending}
-        className="rounded-xl bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-neutral-700 disabled:opacity-50"
-      >
+      <Button type="submit" disabled={pending}>
         {pending ? "Opening checkout…" : "Subscribe — $100/month"}
-      </button>
-      {state.error && (
-        <p role="alert" className="mt-2 text-sm text-red-600">
-          {state.error}
-        </p>
-      )}
+      </Button>
+      <FormError>{state.error}</FormError>
     </form>
   );
 }
@@ -39,18 +32,10 @@ export function ManageBillingButton({ slug }: { slug: string }) {
   return (
     <form action={formAction}>
       <input type="hidden" name="slug" value={slug} />
-      <button
-        type="submit"
-        disabled={pending}
-        className="rounded-xl border border-neutral-300 bg-white px-4 py-2.5 text-sm font-medium hover:border-neutral-500 disabled:opacity-50"
-      >
+      <Button type="submit" variant="secondary" disabled={pending}>
         {pending ? "Opening portal…" : "Manage billing"}
-      </button>
-      {state.error && (
-        <p role="alert" className="mt-2 text-sm text-red-600">
-          {state.error}
-        </p>
-      )}
+      </Button>
+      <FormError>{state.error}</FormError>
     </form>
   );
 }

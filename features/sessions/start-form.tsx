@@ -1,5 +1,6 @@
 "use client";
 
+import { MessageSquare, Mic } from "lucide-react";
 import { useActionState, useState } from "react";
 import { Button, Card, FormError, Label } from "@/components/ui";
 import {
@@ -69,13 +70,18 @@ export function StartSessionForm({
                     type="button"
                     onClick={() => setModality(m)}
                     aria-pressed={active}
-                    className={`rounded-xl border px-3.5 py-2.5 text-sm font-medium transition ${
+                    className={`inline-flex items-center justify-center gap-2 rounded-lg border px-3.5 py-2.5 text-sm font-medium transition-colors ${
                       active
-                        ? "border-neutral-900 bg-neutral-900 text-white"
-                        : "border-neutral-300 bg-white text-neutral-700 hover:border-neutral-500"
+                        ? "border-accent-600 bg-accent-50 text-accent-700"
+                        : "border-neutral-300 bg-white text-neutral-700 hover:border-neutral-400"
                     }`}
                   >
-                    {m === "text" ? "💬 Text" : "🎙️ Voice"}
+                    {m === "text" ? (
+                      <MessageSquare size={16} aria-hidden="true" />
+                    ) : (
+                      <Mic size={16} aria-hidden="true" />
+                    )}
+                    {m === "text" ? "Text" : "Voice"}
                   </button>
                 );
               })}

@@ -26,8 +26,10 @@ export default function NewPersonaPage({
 
   return (
     <main className="mx-auto max-w-xl p-6">
-      <h1 className="mb-1 text-xl font-semibold">New guest persona</h1>
-      <p className="mb-5 text-sm text-neutral-500">
+      <h1 className="mb-1 text-xl font-semibold text-neutral-900">
+        New guest persona
+      </h1>
+      <p className="mb-6 text-sm text-neutral-500">
         Built from this form only — no raw prompts. Keeps guests realistic and
         safe.
       </p>
@@ -60,13 +62,13 @@ export default function NewPersonaPage({
               rows={4}
               maxLength={600}
               placeholder="Travels weekly for work and guards her expense reports carefully. Efficient, polite, and hates feeling brushed off."
-              className="w-full rounded-xl border border-neutral-300 bg-white px-3.5 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none focus:border-neutral-500"
+              className="w-full rounded-lg border border-neutral-300 bg-white px-3.5 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none transition-colors focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20"
               required
             />
           </div>
           <fieldset>
             <Label>Baseline mood — where the guest starts (0–100)</Label>
-            <div className="mt-1 flex flex-col gap-2">
+            <div className="mt-2 flex flex-col gap-3">
               {MOODS.map((m) => (
                 <div key={m.key} className="flex items-center gap-3">
                   <span className="w-28 text-sm text-neutral-700">
@@ -78,7 +80,7 @@ export default function NewPersonaPage({
                     min={0}
                     max={100}
                     defaultValue={m.def}
-                    className="flex-1 accent-neutral-800"
+                    className="flex-1 accent-accent-600"
                   />
                 </div>
               ))}

@@ -18,7 +18,7 @@ const VoiceRoom = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="flex h-[calc(100vh-3.5rem)] items-center justify-center text-sm text-neutral-500">
+      <div className="flex h-[calc(100dvh-100px)] items-center justify-center text-sm text-neutral-500 md:h-dvh">
         Loading voice…
       </div>
     ),

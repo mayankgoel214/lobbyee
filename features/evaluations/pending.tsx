@@ -52,7 +52,7 @@ export function PendingFeedback() {
   }, [router]);
 
   return (
-    <div className="mb-5 rounded-2xl border border-neutral-200 bg-neutral-50 p-4 text-sm text-neutral-600">
+    <div className="mb-5 rounded-2xl border border-neutral-200 bg-neutral-50 p-4 text-sm text-neutral-700">
       {waitedTooLong ? (
         <>
           Your coaching feedback is taking longer than usual. It will retry on
@@ -60,7 +60,7 @@ export function PendingFeedback() {
         </>
       ) : (
         <span className="inline-flex items-center gap-2">
-          <span className="h-2 w-2 animate-pulse rounded-full bg-neutral-400" />
+          <span className="h-2 w-2 animate-pulse rounded-full bg-accent-600" />
           Your coach is reviewing the conversation — feedback usually lands in
           under a minute.
         </span>

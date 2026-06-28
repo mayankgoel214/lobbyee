@@ -1,5 +1,6 @@
 "use client";
 
+import { Square } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { endSessionAction, sendTurnAction } from "@/features/sessions/actions";
@@ -43,11 +44,11 @@ function MoodStrip({ mood }: { mood: MoodVector }) {
 function CoachStrip({ hint }: { hint: string | null }) {
   if (!hint) return null;
   return (
-    <div className="flex items-start gap-2 border-b border-indigo-100 bg-indigo-50 px-4 py-2">
-      <span className="mt-px text-[10px] font-semibold tracking-wide text-indigo-500 uppercase">
+    <div className="flex items-start gap-2 border-b border-accent-100 bg-accent-50 px-4 py-2">
+      <span className="mt-px text-[10px] font-semibold tracking-wide text-accent-500 uppercase">
         Coach
       </span>
-      <span className="text-xs text-indigo-900">{hint}</span>
+      <span className="text-xs text-accent-900">{hint}</span>
     </div>
   );
 }
@@ -113,7 +114,7 @@ export function ChatSession({
   }
 
   return (
-    <div className="mx-auto flex h-[calc(100dvh-49px)] max-w-xl flex-col">
+    <div className="mx-auto flex h-[calc(100dvh-100px)] max-w-xl flex-col md:h-dvh">
       <header className="flex items-center justify-between px-4 py-3">
         <div>
           <h1 className="text-sm font-semibold">{scenarioTitle}</h1>
@@ -123,9 +124,10 @@ export function ChatSession({
           type="button"
           onClick={end}
           disabled={ending}
-          className="text-sm text-neutral-500 hover:text-neutral-900"
+          className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900 disabled:opacity-50"
         >
-          ■ End session
+          <Square size={13} aria-hidden="true" />
+          End session
         </button>
       </header>
 
@@ -174,13 +176,13 @@ export function ChatSession({
           }}
           placeholder="Type your reply…"
           disabled={pending || ending}
-          className="flex-1 rounded-xl border border-neutral-300 bg-white px-3.5 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none focus:border-neutral-500"
+          className="flex-1 rounded-lg border border-neutral-300 bg-white px-3.5 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none transition-colors focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20"
         />
         <button
           type="button"
           onClick={send}
           disabled={pending || ending || !input.trim()}
-          className="rounded-xl bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-neutral-700 disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-lg bg-accent-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-accent-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
           Send
         </button>

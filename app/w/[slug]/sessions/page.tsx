@@ -1,4 +1,6 @@
+import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
+import { Badge, Card } from "@/components/ui";
 import { isAdmin, requireMembership } from "@/lib/auth/session";
 import { dbForRequest } from "@/lib/db/scoped";
 
@@ -92,40 +94,46 @@ export default async function SessionsPage({
 
   return (
     <main className="mx-auto max-w-2xl p-6">
-      <div className="mb-4 flex items-baseline justify-between">
-        <h1 className="text-lg font-semibold">{title}</h1>
+      <div className="mb-5 flex items-baseline justify-between">
+        <h1 className="text-lg font-semibold text-neutral-900">{title}</h1>
         {viewingOther && (
           <Link
             href={`/w/${slug}/dashboard`}
-            className="text-sm text-neutral-500 underline-offset-2 hover:underline"
+            className="inline-flex items-center gap-1 text-sm text-accent-600 transition-colors hover:text-accent-700"
           >
-            ← Dashboard
+            <ArrowLeft size={16} strokeWidth={2} aria-hidden="true" />
+            Dashboard
           </Link>
         )}
       </div>
 
       {sessions.length === 0 ? (
-        <div className="rounded-2xl border border-neutral-200 bg-white p-6 text-sm text-neutral-600">
-          No sessions yet.{" "}
-          {!viewingOther && (
-            <Link href={`/w/${slug}/train`} className="font-medium underline">
-              Start your first practice conversation
-            </Link>
-          )}
-        </div>
+        <Card>
+          <p className="text-sm text-neutral-600">
+            No sessions yet.{" "}
+            {!viewingOther && (
+              <Link
+                href={`/w/${slug}/train`}
+                className="font-medium text-accent-600 hover:text-accent-700"
+              >
+                Start your first practice conversation
+              </Link>
+            )}
+          </p>
+        </Card>
       ) : (
         <ul className="flex flex-col gap-2">
           {sessions.map((s) => (
             <li key={s.id}>
               <Link
                 href={`/w/${slug}/sessions/${s.id}`}
-                className="flex items-center justify-between gap-3 rounded-2xl border border-neutral-200 bg-white p-4 hover:border-neutral-400"
+                className="flex items-center justify-between gap-3 rounded-2xl border border-neutral-200 bg-white p-4 transition-colors hover:border-neutral-300"
               >
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-medium">
+                  <p className="truncate text-sm font-medium text-neutral-900">
                     {s.scenario.title}
                   </p>
-                  <p className="text-xs text-neutral-500">
+                  <p className="mt-0.5 text-xs text-neutral-500">
                     with {s.persona.name} ·{" "}
                     {s.startedAt.toLocaleDateString("en-US", {
                       month: "short",
@@ -134,13 +142,16 @@ export default async function SessionsPage({
                   </p>
                 </div>
                 {s.evaluation ? (
-                  <span className="shrink-0 rounded-full bg-neutral-900 px-2.5 py-1 text-xs font-semibold text-white">
+                  <Badge variant="neutral" className="shrink-0 tabular-nums">
                     {avgScore(s.evaluation)}/5
-                  </span>
+                  </Badge>
                 ) : (
-                  <span className="shrink-0 rounded-full bg-neutral-100 px-2.5 py-1 text-xs text-neutral-500">
+                  <Badge
+                    variant={s.status === "in_progress" ? "accent" : "neutral"}
+                    className="shrink-0"
+                  >
                     {STATUS_LABEL[s.status] ?? s.status}
-                  </span>
+                  </Badge>
                 )}
               </Link>
             </li>

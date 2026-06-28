@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { LobbyeeLogo } from "@/components/logo";
 import { Button, Card, FormError, Input, Label } from "@/components/ui";
 import {
   createWorkspaceAction,
@@ -17,10 +18,15 @@ export default function CreateWorkspacePage() {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center gap-6 p-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Create your workspace</h1>
-        <p className="mt-1 text-sm text-neutral-500">
-          One workspace per property or team — you&apos;ll invite staff next.
+      <div className="flex justify-center">
+        <LobbyeeLogo />
+      </div>
+      <div className="text-center">
+        <h1 className="text-2xl font-semibold text-neutral-900">
+          Create your workspace
+        </h1>
+        <p className="mt-1.5 text-sm text-neutral-500">
+          One workspace per property or team — you&rsquo;ll invite staff next.
         </p>
       </div>
       <Card>
@@ -40,7 +46,7 @@ export default function CreateWorkspacePage() {
             <select
               id="industry"
               name="industry"
-              className="w-full rounded-xl border border-neutral-300 bg-white px-3.5 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none focus:border-neutral-500"
+              className="w-full rounded-lg border border-neutral-300 bg-white px-3.5 py-2.5 text-sm text-neutral-900 outline-none transition-colors focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20"
               defaultValue="hotel"
             >
               <option value="hotel">Hotel / resort</option>

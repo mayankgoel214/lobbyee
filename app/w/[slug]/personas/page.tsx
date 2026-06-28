@@ -1,5 +1,6 @@
+import { Plus } from "lucide-react";
 import Link from "next/link";
-import { Card } from "@/components/ui";
+import { Button, Card } from "@/components/ui";
 import { isAdmin, requireMembership } from "@/lib/auth/session";
 import { dbForRequest } from "@/lib/db/scoped";
 
@@ -18,19 +19,21 @@ export default async function PersonasPage({
 
   return (
     <main className="mx-auto max-w-3xl p-6">
-      <div className="mb-5 flex items-center justify-between">
+      <div className="mb-6 flex items-start justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold">Guest personas</h1>
-          <p className="text-sm text-neutral-500">
-            The “who” of every training session.
+          <h1 className="text-xl font-semibold text-neutral-900">
+            Guest personas
+          </h1>
+          <p className="mt-1 text-sm text-neutral-500">
+            The &ldquo;who&rdquo; of every training session.
           </p>
         </div>
         {admin && (
-          <Link
-            href={`/w/${slug}/personas/new`}
-            className="rounded-xl bg-neutral-900 px-4 py-2 text-sm font-semibold text-white hover:bg-neutral-700"
-          >
-            New persona
+          <Link href={`/w/${slug}/personas/new`}>
+            <Button>
+              <Plus size={16} strokeWidth={2} aria-hidden="true" />
+              New persona
+            </Button>
           </Link>
         )}
       </div>
@@ -47,11 +50,11 @@ export default async function PersonasPage({
         <div className="grid gap-3 sm:grid-cols-2">
           {personas.map((p) => (
             <Card key={p.id}>
-              <h2 className="font-semibold">{p.name}</h2>
-              <p className="text-xs tracking-wide text-neutral-500 uppercase">
+              <h2 className="font-semibold text-neutral-900">{p.name}</h2>
+              <p className="mt-0.5 text-xs font-medium text-neutral-500">
                 {p.guestType}
               </p>
-              <p className="mt-2 line-clamp-3 text-sm text-neutral-600">
+              <p className="mt-3 line-clamp-3 text-sm leading-relaxed text-neutral-600">
                 {p.backstory}
               </p>
             </Card>

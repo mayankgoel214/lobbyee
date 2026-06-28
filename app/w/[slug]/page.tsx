@@ -1,3 +1,4 @@
+import { Badge } from "@/components/ui";
 import { InviteForm } from "@/features/team/invite-form";
 import { isAdmin, requireMembership } from "@/lib/auth/session";
 import { dbForRequest } from "@/lib/db/scoped";
@@ -21,7 +22,7 @@ export default async function WorkspaceHome({
 
   return (
     <main className="mx-auto max-w-3xl p-6">
-      <h1 className="text-xl font-semibold">Team</h1>
+      <h1 className="text-xl font-semibold text-neutral-900">Team</h1>
       <p className="mt-1 text-sm text-neutral-500">
         {admin
           ? "Invite your front-line staff — each person gets a magic link by email."
@@ -31,33 +32,47 @@ export default async function WorkspaceHome({
       <div className="mt-6 overflow-hidden rounded-2xl border border-neutral-200 bg-white">
         <table className="w-full text-left text-sm">
           <thead>
-            <tr className="border-b border-neutral-200 text-xs tracking-wide text-neutral-500 uppercase">
-              <th className="px-4 py-3 font-semibold">Name</th>
-              <th className="px-4 py-3 font-semibold">Email</th>
-              <th className="px-4 py-3 font-semibold">Role</th>
-              <th className="px-4 py-3 font-semibold">Status</th>
+            <tr className="border-b border-neutral-200 text-xs font-medium text-neutral-500">
+              <th className="px-5 py-3">Name</th>
+              <th className="px-5 py-3">Email</th>
+              <th className="px-5 py-3">Role</th>
+              <th className="px-5 py-3">Status</th>
             </tr>
           </thead>
           <tbody>
             {members.map((m) => (
-              <tr key={m.id} className="border-b border-neutral-100">
-                <td className="px-4 py-3 font-medium">
+              <tr
+                key={m.id}
+                className="border-b border-neutral-100 last:border-0"
+              >
+                <td className="px-5 py-3 font-medium text-neutral-900">
                   {m.profile.fullName ?? "—"}
                   {m.userId === user.id && (
                     <span className="ml-2 text-xs text-neutral-400">you</span>
                   )}
                 </td>
-                <td className="px-4 py-3 text-neutral-600">
+                <td className="px-5 py-3 text-neutral-600">
                   {m.profile.email}
                 </td>
-                <td className="px-4 py-3 capitalize">{m.role}</td>
-                <td className="px-4 py-3">
+                <td className="px-5 py-3">
+                  <Badge
+                    variant={
+                      m.role === "owner" || m.role === "manager"
+                        ? "accent"
+                        : "neutral"
+                    }
+                    className="capitalize"
+                  >
+                    {m.role}
+                  </Badge>
+                </td>
+                <td className="px-5 py-3">
                   {m.status === "pending" ? (
-                    <span className="rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-medium text-neutral-600">
-                      Invite sent
-                    </span>
+                    <Badge variant="neutral">Invite sent</Badge>
                   ) : (
-                    <span className="capitalize">{m.status}</span>
+                    <span className="text-sm capitalize text-neutral-700">
+                      {m.status}
+                    </span>
                   )}
                 </td>
               </tr>
@@ -68,12 +83,10 @@ export default async function WorkspaceHome({
 
       {admin && (
         <div className="mt-8">
-          <h2 className="text-sm font-semibold tracking-wide text-neutral-500 uppercase">
+          <h2 className="mb-3 text-sm font-semibold text-neutral-900">
             Invite teammates
           </h2>
-          <div className="mt-3">
-            <InviteForm slug={slug} />
-          </div>
+          <InviteForm slug={slug} />
         </div>
       )}
     </main>

@@ -18,6 +18,7 @@ import {
   usePipecatClientTransportState,
 } from "@pipecat-ai/client-react";
 import { SmallWebRTCTransport } from "@pipecat-ai/small-webrtc-transport";
+import { Mic, MicOff, Square } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { type ComponentProps, useEffect, useState } from "react";
 import { endSessionAction } from "@/features/sessions/actions";
@@ -126,12 +127,12 @@ function VoiceRoomInner({
   }
 
   return (
-    <div className="flex h-[calc(100vh-3.5rem)] flex-col">
+    <div className="flex h-[calc(100dvh-100px)] flex-col md:h-dvh">
       <header className="flex items-center justify-between border-b border-neutral-200 px-6 py-3">
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-lg font-semibold">{scenarioTitle}</h1>
-            <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700">
+            <span className="rounded-full bg-accent-50 px-2 py-0.5 text-xs font-medium text-accent-700">
               Voice
             </span>
           </div>
@@ -141,29 +142,30 @@ function VoiceRoomInner({
           type="button"
           onClick={end}
           disabled={ending}
-          className="rounded-xl border border-neutral-300 px-3.5 py-2 text-sm font-medium text-neutral-700 hover:border-neutral-500 disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-300 px-3.5 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-50 disabled:opacity-50"
         >
-          {ending ? "Ending…" : "■ End session"}
+          <Square size={14} aria-hidden="true" />
+          {ending ? "Ending…" : "End session"}
         </button>
       </header>
 
       {initialHint && (
-        <div className="border-b border-indigo-100 bg-indigo-50 px-6 py-2.5">
-          <span className="text-xs font-semibold tracking-wide text-indigo-500 uppercase">
+        <div className="border-b border-accent-100 bg-accent-50 px-6 py-2.5">
+          <span className="text-xs font-semibold tracking-wide text-accent-500 uppercase">
             Coach
           </span>
-          <p className="text-sm text-indigo-900">{initialHint}</p>
+          <p className="text-sm text-accent-900">{initialHint}</p>
         </div>
       )}
 
       <div className="flex flex-1 flex-col items-center justify-center gap-6 p-6 text-center">
         {!isReady ? (
           <>
-            <div className="flex h-28 w-28 items-center justify-center rounded-full border-2 border-dashed border-neutral-300 text-4xl text-neutral-400">
-              🎙️
+            <div className="flex h-28 w-28 items-center justify-center rounded-full border-2 border-dashed border-neutral-300 text-neutral-400">
+              <Mic size={34} strokeWidth={1.75} aria-hidden="true" />
             </div>
             <div className="max-w-sm">
-              <p className="font-medium text-neutral-700">
+              <p className="font-medium text-neutral-800">
                 {isConnecting ? "Connecting…" : "Ready when you are"}
               </p>
               <p className="mt-1 text-sm text-neutral-500">
@@ -175,18 +177,19 @@ function VoiceRoomInner({
               type="button"
               onClick={connect}
               disabled={isConnecting}
-              className="rounded-xl bg-neutral-900 px-5 py-3 text-sm font-medium text-white hover:bg-neutral-700 disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-lg bg-accent-600 px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-accent-700 disabled:opacity-50"
             >
-              {isConnecting ? "Connecting…" : "🎙️ Connect & talk"}
+              <Mic size={16} aria-hidden="true" />
+              {isConnecting ? "Connecting…" : "Connect & talk"}
             </button>
           </>
         ) : (
           <>
-            <div className="flex h-28 w-28 animate-pulse items-center justify-center rounded-full bg-indigo-100 text-4xl">
-              🎙️
+            <div className="flex h-28 w-28 animate-pulse items-center justify-center rounded-full bg-accent-100 text-accent-700">
+              <Mic size={34} strokeWidth={1.75} aria-hidden="true" />
             </div>
             <div className="max-w-sm">
-              <p className="font-medium text-neutral-700">
+              <p className="font-medium text-neutral-800">
                 {isMicEnabled ? "Listening — speak naturally" : "Mic muted"}
               </p>
               <p className="mt-1 text-sm text-neutral-500">
@@ -196,8 +199,13 @@ function VoiceRoomInner({
             <button
               type="button"
               onClick={() => enableMic(!isMicEnabled)}
-              className="rounded-xl border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 hover:border-neutral-500"
+              className="inline-flex items-center gap-2 rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-50"
             >
+              {isMicEnabled ? (
+                <MicOff size={15} aria-hidden="true" />
+              ) : (
+                <Mic size={15} aria-hidden="true" />
+              )}
               {isMicEnabled ? "Mute" : "Unmute"}
             </button>
           </>

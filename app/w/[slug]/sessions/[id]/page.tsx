@@ -1,6 +1,8 @@
+import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { after } from "next/server";
+import { Badge } from "@/components/ui";
 import {
   type EvaluationView,
   FeedbackPanel,
@@ -146,13 +148,20 @@ export default async function SessionPage({
 
   return (
     <main className="mx-auto max-w-xl p-6">
-      <div className="mb-4">
-        <h1 className="text-lg font-semibold">{session.scenario.title}</h1>
-        <p className="text-sm text-neutral-500">
-          with {session.persona.name} ·{" "}
-          {session.status === "in_progress" ? "in progress" : session.status} ·{" "}
-          {chatMessages.length} turns
-        </p>
+      <div className="mb-5 flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-lg font-semibold text-neutral-900">
+            {session.scenario.title}
+          </h1>
+          <p className="mt-0.5 text-sm text-neutral-500">
+            with {session.persona.name} · {chatMessages.length} turns
+          </p>
+        </div>
+        <Badge
+          variant={session.status === "in_progress" ? "accent" : "neutral"}
+        >
+          {session.status === "in_progress" ? "in progress" : session.status}
+        </Badge>
       </div>
 
       {evaluation && <FeedbackPanel evaluation={evaluation} />}
@@ -170,7 +179,7 @@ export default async function SessionPage({
         </div>
       )}
 
-      <h2 className="mb-3 text-sm font-semibold text-neutral-500">
+      <h2 className="mb-3 text-sm font-semibold text-neutral-900">
         Transcript
       </h2>
       <div className="flex flex-col gap-3">
@@ -178,7 +187,7 @@ export default async function SessionPage({
           const cited = citedKinds.get(m.id);
           const ring =
             cited === "missed_opportunity"
-              ? "ring-2 ring-amber-300"
+              ? "ring-2 ring-accent-300"
               : cited === "strength"
                 ? "ring-2 ring-emerald-300"
                 : "";
@@ -200,9 +209,10 @@ export default async function SessionPage({
       <div className="mt-6">
         <Link
           href={`/w/${slug}/train`}
-          className="text-sm font-medium underline"
+          className="inline-flex items-center gap-1 text-sm font-medium text-accent-600 transition-colors hover:text-accent-700"
         >
-          ← Back to training
+          <ArrowLeft size={16} strokeWidth={2} aria-hidden="true" />
+          Back to training
         </Link>
       </div>
     </main>

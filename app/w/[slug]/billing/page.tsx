@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { Badge, Card } from "@/components/ui";
 import {
   ManageBillingButton,
   SubscribeButton,
@@ -12,15 +13,15 @@ function UsageMeter({ used, cap }: { used: number; cap: number }) {
   const pct = Math.min(100, Math.round((used / Math.max(1, cap)) * 100));
   return (
     <div>
-      <div className="mb-1 flex items-baseline justify-between text-sm">
-        <span className="font-medium">
+      <div className="mb-2 flex items-baseline justify-between text-sm">
+        <span className="font-medium text-neutral-900">
           {used} of {cap} sessions used
         </span>
-        <span className="text-neutral-500">{pct}%</span>
+        <span className="text-neutral-500 tabular-nums">{pct}%</span>
       </div>
-      <div className="h-2 overflow-hidden rounded-full bg-neutral-100">
+      <div className="h-2 overflow-hidden rounded-full bg-neutral-200">
         <div
-          className={`h-full rounded-full ${pct >= 90 ? "bg-amber-500" : "bg-neutral-900"}`}
+          className={`h-full rounded-full transition-all ${pct >= 90 ? "bg-amber-500" : "bg-accent-600"}`}
           style={{ width: `${pct}%` }}
         />
       </div>
@@ -55,8 +56,8 @@ export default async function BillingPage({
 
   return (
     <main className="mx-auto max-w-xl p-6">
-      <h1 className="mb-1 text-lg font-semibold">Billing</h1>
-      <p className="mb-5 text-sm text-neutral-500">{workspace.name}</p>
+      <h1 className="text-lg font-semibold text-neutral-900">Billing</h1>
+      <p className="mb-6 mt-0.5 text-sm text-neutral-500">{workspace.name}</p>
 
       {checkout === "success" && (
         <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
@@ -76,30 +77,24 @@ export default async function BillingPage({
         </div>
       )}
 
-      <section className="mb-4 rounded-2xl border border-neutral-200 bg-white p-5">
-        <div className="mb-3 flex items-center justify-between">
+      <Card className="mb-4">
+        <div className="mb-4 flex items-start justify-between gap-3">
           <div>
-            <p className="text-sm font-semibold">
+            <p className="text-sm font-semibold text-neutral-900">
               {onPaidPlan ? "Starter plan" : "Free trial"}
             </p>
-            <p className="text-sm text-neutral-500">
+            <p className="mt-1 text-sm text-neutral-500">
               {onPaidPlan
                 ? `$100/month · ${workspace.sessionCapMonthly} sessions per period${renewsOn ? ` · renews ${renewsOn}` : ""}`
                 : `${TRIAL_SESSION_CAP} practice sessions to try Lobbyee — no card required`}
             </p>
           </div>
-          <span
-            className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-              onPaidPlan
-                ? "bg-neutral-900 text-white"
-                : "bg-neutral-100 text-neutral-600"
-            }`}
-          >
+          <Badge variant={onPaidPlan ? "accent" : "neutral"}>
             {onPaidPlan ? (subscription?.stripeStatus ?? "active") : "trial"}
-          </span>
+          </Badge>
         </div>
         <UsageMeter used={workspace.sessionsUsedThisPeriod} cap={cap} />
-      </section>
+      </Card>
 
       {!billingConfigured() && !onPaidPlan ? (
         <p className="text-sm text-neutral-500">
@@ -113,7 +108,7 @@ export default async function BillingPage({
       ) : (
         <div>
           <SubscribeButton slug={slug} />
-          <p className="mt-2 text-xs text-neutral-400">
+          <p className="mt-2 text-xs text-neutral-500">
             Secure checkout by Stripe. Cancel anytime from this page.
           </p>
         </div>

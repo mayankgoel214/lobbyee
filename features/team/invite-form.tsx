@@ -1,7 +1,8 @@
 "use client";
 
+import { Check, X } from "lucide-react";
 import { useActionState } from "react";
-import { Button, Card, FormError } from "@/components/ui";
+import { Button, Card, FormError, Label } from "@/components/ui";
 import { type InviteFormState, inviteStaffAction } from "./actions";
 
 const initial: InviteFormState = {};
@@ -14,27 +15,39 @@ export function InviteForm({ slug }: { slug: string }) {
       <form action={action} className="flex flex-col gap-4">
         <input type="hidden" name="slug" value={slug} />
         <div>
-          <label
-            htmlFor="emails"
-            className="mb-1.5 block text-xs font-semibold tracking-wide text-neutral-500 uppercase"
-          >
+          <Label htmlFor="emails">
             Email addresses — one per line, up to 10
-          </label>
+          </Label>
           <textarea
             id="emails"
             name="emails"
             rows={3}
             required
             placeholder={"daniel@yourhotel.com\nsofia@yourhotel.com"}
-            className="w-full rounded-xl border border-neutral-300 bg-white px-3.5 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none focus:border-neutral-500"
+            className="w-full rounded-lg border border-neutral-300 bg-white px-3.5 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none transition-colors focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20"
           />
         </div>
         <FormError>{state.error}</FormError>
         {state.results && (
-          <ul className="flex flex-col gap-1 text-sm">
+          <ul className="flex flex-col gap-1.5 text-sm">
             {state.results.map((r) => (
-              <li key={r.email}>
-                {r.status === "invited" ? "✓" : "✕"} {r.email}
+              <li key={r.email} className="flex items-center gap-2">
+                {r.status === "invited" ? (
+                  <Check
+                    size={16}
+                    strokeWidth={2}
+                    aria-hidden="true"
+                    className="text-emerald-600"
+                  />
+                ) : (
+                  <X
+                    size={16}
+                    strokeWidth={2}
+                    aria-hidden="true"
+                    className="text-red-600"
+                  />
+                )}
+                <span className="text-neutral-800">{r.email}</span>
                 {r.note && (
                   <span className="text-neutral-500"> — {r.note}</span>
                 )}
@@ -45,7 +58,7 @@ export function InviteForm({ slug }: { slug: string }) {
         <Button type="submit" disabled={pending} className="self-start">
           {pending ? "Sending invites…" : "Send invites"}
         </Button>
-        <p className="text-xs text-neutral-400">
+        <p className="text-xs text-neutral-500">
           Invitees join as staff. Magic links expire after a few days — you can
           re-invite anytime.
         </p>

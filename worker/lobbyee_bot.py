@@ -26,6 +26,7 @@
 import asyncio
 import os
 import uuid
+from collections import deque
 from pathlib import Path
 
 import httpx
@@ -77,13 +78,15 @@ class MoodInjector(FrameProcessor):
 
     def __init__(self, state: dict):
         super().__init__()
-        self._state = state  # shared: {"mood_note": str, "pending_user": str | None}
+        self._state = state  # shared: {"mood_note": str, "pending_users": deque[str]}
 
     async def process_frame(self, frame: Frame, direction: FrameDirection):
         await super().process_frame(frame, direction)
         if isinstance(frame, TranscriptionFrame) and frame.text.strip():
             clean = frame.text.strip()
-            self._state["pending_user"] = clean
+            # FIFO queue so that under barge-in / two fast utterances we pair the
+            # OLDEST user line with the next guest reply (not the most recent one).
+            self._state["pending_users"].append(clean)
             note = self._state.get("mood_note") or ""
             await self.push_frame(
                 TranscriptionFrame(
@@ -98,35 +101,64 @@ class MoodInjector(FrameProcessor):
 
 
 async def _post_turn(
-    client: httpx.AsyncClient, state: dict, user_text: str, guest_text: str
+    client: httpx.AsyncClient,
+    state: dict,
+    idempotency_key: str,
+    user_text: str,
+    guest_text: str,
 ):
     """Persist one completed turn and adopt the mood the app returns for the next
-    guest reply. Best-effort: a failed POST logs but never crashes the call."""
+    guest reply. Bounded retry (3 attempts, exp backoff) on 5xx / network errors,
+    REUSING the same idempotency key per wire-contract §2."""
     body = {
-        "idempotencyKey": str(uuid.uuid4()),
+        "idempotencyKey": idempotency_key,
         "userText": user_text,
         "guestText": guest_text,
     }
-    try:
-        r = await client.post(
-            f"{BASE_URL}/api/voice/worker/turn",
-            json=body,
-            headers=_auth_headers(),
-            timeout=15,
+    backoffs = [0.5, 1.0, 2.0]  # 3 attempts: initial + 2 retries
+    for attempt, delay in enumerate(backoffs):
+        try:
+            r = await client.post(
+                f"{BASE_URL}/api/voice/worker/turn",
+                json=body,
+                headers=_auth_headers(),
+                timeout=15,
+            )
+        except Exception as e:  # noqa: BLE001 — network/timeout: retryable
+            if attempt < len(backoffs) - 1:
+                logger.warning(
+                    f"turn POST network error (attempt {attempt + 1}/{len(backoffs)}): {e} — retrying in {delay}s"
+                )
+                await asyncio.sleep(delay)
+                continue
+            logger.error(f"turn POST failed after {len(backoffs)} attempts (turn not saved): {e}")
+            return
+
+        if r.status_code == 200:
+            data = r.json()
+            state["mood_note"] = data.get("moodNote") or state.get("mood_note") or ""
+            logger.info(
+                f"turn saved @{data.get('guestTurnIndex')} status={data.get('status')}"
+            )
+            return
+        if r.status_code == 409:
+            # Terminal: session ended or real ordering collision — don't retry.
+            logger.warning("turn rejected (409) — session ended or out of order")
+            return
+        if 400 <= r.status_code < 500:
+            # Terminal: bad body / auth / not-found — retrying won't help.
+            logger.error(f"turn POST {r.status_code} (terminal): {r.text[:200]}")
+            return
+        # 5xx — retryable.
+        if attempt < len(backoffs) - 1:
+            logger.warning(
+                f"turn POST {r.status_code} (attempt {attempt + 1}/{len(backoffs)}): {r.text[:200]} — retrying in {delay}s"
+            )
+            await asyncio.sleep(delay)
+            continue
+        logger.error(
+            f"turn POST {r.status_code} after {len(backoffs)} attempts: {r.text[:200]}"
         )
-    except Exception as e:  # noqa: BLE001 — never let a write error kill the call
-        logger.error(f"turn POST failed (turn not saved): {e}")
-        return
-    if r.status_code == 200:
-        data = r.json()
-        state["mood_note"] = data.get("moodNote") or state.get("mood_note") or ""
-        logger.info(
-            f"turn saved @{data.get('guestTurnIndex')} status={data.get('status')}"
-        )
-    elif r.status_code == 409:
-        logger.warning("turn rejected (409) — session ended or out of order")
-    else:
-        logger.error(f"turn POST {r.status_code}: {r.text[:200]}")
 
 
 async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
@@ -154,7 +186,10 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
         }
         for m in snap.get("history", [])
     ]
-    state = {"mood_note": snap.get("moodNote", ""), "pending_user": None}
+    state = {"mood_note": snap.get("moodNote", ""), "pending_users": deque()}
+    # Track in-flight turn POSTs so we can drain them on disconnect before
+    # closing the shared httpx client.
+    pending_posts: set[asyncio.Task] = set()
     # The guest's opening line (already persisted at session start) — we speak it
     # aloud on connect so the trainee hears the guest start.
     opener = next(
@@ -202,12 +237,18 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
     @assistant_aggregator.event_handler("on_assistant_turn_stopped")
     async def on_assistant_turn_stopped(aggregator, message):
         guest_text = (getattr(message, "content", "") or "").strip()
-        user_text = state.get("pending_user")
-        # No user text → this is the spoken opener, already persisted; skip.
-        if not guest_text or not user_text:
+        queue: deque = state["pending_users"]
+        # Empty queue → this is the spoken opener, already persisted; skip.
+        if not guest_text or not queue:
             return
-        state["pending_user"] = None
-        asyncio.create_task(_post_turn(client, state, user_text, guest_text))
+        user_text = queue.popleft()
+        # Mint the idempotency key ONCE here so retries inside _post_turn reuse it.
+        idempotency_key = str(uuid.uuid4())
+        t = asyncio.create_task(
+            _post_turn(client, state, idempotency_key, user_text, guest_text)
+        )
+        pending_posts.add(t)
+        t.add_done_callback(pending_posts.discard)
 
     @transport.event_handler("on_client_connected")
     async def on_client_connected(transport, _client):
@@ -218,6 +259,11 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
     @transport.event_handler("on_client_disconnected")
     async def on_client_disconnected(transport, _client):
         logger.info("Trainee disconnected — ending session")
+        # Drain in-flight turn POSTs before closing the shared httpx client,
+        # otherwise the final turn(s) raise mid-flight and get lost.
+        if pending_posts:
+            logger.info(f"Draining {len(pending_posts)} in-flight turn POST(s)")
+            await asyncio.gather(*pending_posts, return_exceptions=True)
         await task.cancel()
         await client.aclose()
 

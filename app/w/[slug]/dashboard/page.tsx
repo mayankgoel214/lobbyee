@@ -151,7 +151,7 @@ export default async function DashboardPage({
           return (
             <div
               key={c}
-              className="rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-4"
+              className="rounded-2xl border border-neutral-200 bg-white px-4 py-4"
             >
               <p className="text-xs font-medium text-neutral-500">
                 {COMPETENCY_LABELS[c]}

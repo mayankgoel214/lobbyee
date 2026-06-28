@@ -7,6 +7,7 @@ import "server-only";
 import { generateCoachHint } from "@/lib/ai/coach";
 import { generateGuestReply } from "@/lib/ai/guest";
 import { updateMood } from "@/lib/ai/mood";
+import { writeRowsAsTenant } from "@/lib/db/admin";
 import type { ScopedDb } from "@/lib/db/scoped";
 import type { AIPort, MoodVector, PersistencePort } from "./types";
 import { TurnCollisionError } from "./types";
@@ -23,33 +24,44 @@ export const textAI: AIPort = {
 // widen it or cast `dbAdmin` to it. Passing an unscoped client here would write
 // tenant rows with RLS off. workspaceId/sessionId must come from an RLS-validated
 // read (see sendTurnAction), never from raw client input.
+//
+// `userId` is threaded in solely so writeUserAndGuest can call
+// writeRowsAsTenant (see lib/db/admin.ts) — that helper opens ONE Postgres
+// transaction under this trainee's RLS context so the user+guest row pair
+// commits atomically. Other ports keep using `db` (each its own scoped txn —
+// fine, because they're single-statement writes).
 export function textPersistence(
   db: ScopedDb,
-  ids: { sessionId: string; workspaceId: string },
+  ids: { sessionId: string; workspaceId: string; userId: string },
 ): PersistencePort {
-  const { sessionId, workspaceId } = ids;
+  const { sessionId, workspaceId, userId } = ids;
   return {
     async writeUserAndGuest({ nextIndex, userText, guestText, mood }) {
       try {
-        await db.message.create({
-          data: {
-            sessionId,
-            workspaceId,
-            turnIndex: nextIndex,
-            role: "user",
-            text: userText,
-          },
-        });
-        await db.message.create({
-          data: {
-            sessionId,
-            workspaceId,
-            turnIndex: nextIndex + 1,
-            role: "guest",
-            text: guestText,
-            moodSnapshot: mood,
-          },
-        });
+        // ONE transaction (RLS-scoped via writeRowsAsTenant) for both rows —
+        // a transient pg failure between them used to leave an orphan user
+        // row and corrupt the transcript the evaluator later read.
+        await writeRowsAsTenant(userId, (tx) => [
+          tx.message.create({
+            data: {
+              sessionId,
+              workspaceId,
+              turnIndex: nextIndex,
+              role: "user",
+              text: userText,
+            },
+          }),
+          tx.message.create({
+            data: {
+              sessionId,
+              workspaceId,
+              turnIndex: nextIndex + 1,
+              role: "guest",
+              text: guestText,
+              moodSnapshot: mood,
+            },
+          }),
+        ]);
       } catch (e: unknown) {
         // Concurrent turn (second tab / double submit) collides on the
         // (sessionId, turnIndex) unique constraint.

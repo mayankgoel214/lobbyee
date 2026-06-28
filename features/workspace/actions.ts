@@ -28,6 +28,22 @@ export async function createWorkspaceAction(
   }
   const { name, industry } = parsed.data;
 
+  // Trial-abuse / Gemini-spend cap: each workspace gets a fresh 10-session
+  // free trial, so an unbounded number of owner workspaces means unbounded
+  // free model spend per identity. Hold any one user to a small number of
+  // owned workspaces. Counted via dbAdmin because the user may have no
+  // active membership in some of these yet (and this is the same bootstrap
+  // path the existing creation flow uses below — same justification).
+  const ownerCount = await dbAdmin.membership.count({
+    where: { userId: user.id, role: "owner" },
+  });
+  if (ownerCount >= 3) {
+    return {
+      error:
+        "You already own the maximum number of workspaces (3). Archive or transfer one before creating another.",
+    };
+  }
+
   const base = slugify(name);
   let slug = base;
   for (let attempt = 0; ; attempt++) {

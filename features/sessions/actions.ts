@@ -317,6 +317,7 @@ export async function sendTurnAction(input: {
       persist: textPersistence(db, {
         sessionId,
         workspaceId: session.workspaceId,
+        userId: user.id,
       }),
     },
     {

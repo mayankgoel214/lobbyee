@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { isAdmin, requireMembership, requireUser } from "@/lib/auth/session";
 import { dbAdmin } from "@/lib/db/admin";
 import { dbForRequest } from "@/lib/db/scoped";
@@ -111,14 +112,46 @@ export async function inviteStaffAction(
   return { results };
 }
 
+// SERVICE-PATH JUSTIFICATION (dbAdmin): a pending invitee has no membership
+// the RLS policy would let them read (memberships are workspace-admin-only),
+// so we read by the verified session user id directly. This is a READ ONLY —
+// it does not flip status. Use `acceptPendingInvitesAction` (POST) for that.
+export async function getPendingInvitesForCurrentUser() {
+  const user = await requireUser();
+  const [pending, active] = await Promise.all([
+    dbAdmin.membership.findMany({
+      where: { userId: user.id, status: "pending" },
+      include: { workspace: true },
+      orderBy: { createdAt: "asc" },
+    }),
+    dbAdmin.membership.findFirst({
+      where: { userId: user.id, status: "active" },
+      include: { workspace: true },
+      orderBy: { createdAt: "desc" },
+    }),
+  ]);
+  return {
+    pending: pending.map((m) => m.workspace),
+    activeWorkspace: active?.workspace ?? null,
+  };
+}
+
 // SERVICE-PATH JUSTIFICATION (dbAdmin): a pending invitee cannot activate
 // their own membership through RLS (membership updates are admin-only by
 // policy, and role/workspace changes are trigger-guarded). Activation is
 // identity-bound: only rows belonging to the verified session user flip,
 // and only from pending to active.
-export async function acceptInvitesForCurrentUser() {
+//
+// SECURITY (CSRF): this MUST only run on POST. It used to run at GET render
+// time on /invite/accept, which meant any cross-origin page could trigger
+// a silent membership grant by loading that URL. The page now renders a
+// form whose action is THIS server action; calling it from a render path
+// is a bug.
+export async function acceptPendingInvitesAction(
+  _formData: FormData,
+): Promise<void> {
   const user = await requireUser();
-  const updated = await dbAdmin.membership.updateMany({
+  await dbAdmin.membership.updateMany({
     where: { userId: user.id, status: "pending" },
     data: { status: "active" },
   });
@@ -127,5 +160,7 @@ export async function acceptInvitesForCurrentUser() {
     include: { workspace: true },
     orderBy: { createdAt: "desc" },
   });
-  return { activated: updated.count, workspace: first?.workspace ?? null };
+  if (first?.workspace) {
+    redirect(`/w/${first.workspace.slug}`);
+  }
 }

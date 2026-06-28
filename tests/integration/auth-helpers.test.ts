@@ -35,10 +35,12 @@ describe.skipIf(!hasDb)("auth helpers (live DB)", () => {
     slug: string,
   ) => Promise<{ workspace: unknown; membership: unknown } | null>;
   let isAdmin: (role: "owner" | "manager" | "staff") => boolean;
-  let acceptInvitesForCurrentUser: () => Promise<{
-    activated: number;
-    workspace: { slug: string } | null;
-  }>;
+  // Accept flow is now split: a GET-safe READ (getPendingInvitesForCurrentUser)
+  // and a POST-only ACTION (acceptPendingInvitesAction). The read is what the
+  // /invite/accept page calls at render time; the action runs only from the
+  // form POST. The action-binding sanity check below covers both exports.
+  let getPendingInvitesForCurrentUser: () => Promise<unknown>;
+  let acceptPendingInvitesAction: (fd: FormData) => Promise<void>;
 
   // userOwner — owner of workspace A
   // userMgrA — manager of workspace A
@@ -77,7 +79,8 @@ describe.skipIf(!hasDb)("auth helpers (live DB)", () => {
     ({ afterAuthDestination, getMembership, isAdmin } = await import(
       "@/lib/auth/session"
     ));
-    ({ acceptInvitesForCurrentUser } = await import("@/features/team/actions"));
+    ({ getPendingInvitesForCurrentUser, acceptPendingInvitesAction } =
+      await import("@/features/team/actions"));
 
     // Seed users
     await dbAdmin.profile.createMany({
@@ -356,11 +359,12 @@ describe.skipIf(!hasDb)("auth helpers (live DB)", () => {
     });
   });
 
-  // Reference: acceptInvitesForCurrentUser exists; we don't invoke it
-  // directly because it pulls auth from cookies. The contract test above
-  // covers its load-bearing filter. Keeping this import alive prevents
-  // accidental dead-code elimination warnings on the dynamic import.
-  it("acceptInvitesForCurrentUser is exported as a callable action", () => {
-    expect(typeof acceptInvitesForCurrentUser).toBe("function");
+  // Reference: both halves of the split accept flow exist; we don't invoke
+  // them directly because they pull auth from cookies. The contract test
+  // above covers their load-bearing filter. Keeping these imports alive
+  // prevents accidental dead-code elimination warnings on the dynamic import.
+  it("getPendingInvitesForCurrentUser + acceptPendingInvitesAction are exported as callable functions", () => {
+    expect(typeof getPendingInvitesForCurrentUser).toBe("function");
+    expect(typeof acceptPendingInvitesAction).toBe("function");
   });
 });

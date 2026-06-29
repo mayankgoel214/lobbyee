@@ -69,6 +69,7 @@ export default async function SessionPage({
         personaName={session.persona.name}
         scenarioTitle={session.scenario.title}
         initialHint={initialHint}
+        initialMood={mood}
       />
     );
   }

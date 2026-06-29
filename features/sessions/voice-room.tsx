@@ -9,19 +9,44 @@
 //
 // Loaded lazily (ssr:false) via voice-room-loader so the Pipecat SDK + WebRTC
 // only ship to the browser when a voice session actually opens.
-import { PipecatClient } from "@pipecat-ai/client-js";
+import {
+  type BotLLMTextData,
+  PipecatClient,
+  RTVIEvent,
+  type ServerMessageData,
+  type TranscriptData,
+} from "@pipecat-ai/client-js";
 import {
   PipecatClientAudio,
   PipecatClientProvider,
   usePipecatClient,
   usePipecatClientMicControl,
   usePipecatClientTransportState,
+  useRTVIClientEvent,
 } from "@pipecat-ai/client-react";
 import { SmallWebRTCTransport } from "@pipecat-ai/small-webrtc-transport";
 import { Mic, MicOff, Square } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { type ComponentProps, useEffect, useState } from "react";
+import {
+  type ComponentProps,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { endSessionAction } from "@/features/sessions/actions";
+import {
+  clamp100,
+  dedupeUserLine,
+  isCoachMessage,
+  isMood,
+  MOOD_AXES,
+  stripMoodNote,
+  type TranscriptLine,
+  wellbeing,
+  wellbeingLabel,
+} from "@/features/sessions/voice-analytics";
+import type { MoodVector } from "@/lib/ai/mood";
 
 // Where the worker's WebRTC signaling lives. Local dev default; point at a
 // tunnel (for a phone) or the hosted worker via this public env var.
@@ -29,13 +54,211 @@ const WORKER_URL = (
   process.env.NEXT_PUBLIC_PIPECAT_WORKER_URL ?? "http://localhost:7860"
 ).replace(/\/+$/, "");
 
+// Bound in-memory growth on a long call: keep the most recent N transcript
+// bubbles in the DOM and N mood readings for the trend. Both are generous —
+// a 30-minute call rarely exceeds these — and the panel's "since start" delta
+// is computed from initialMood, not the trimmed history, so capping is safe.
+const TRANSCRIPT_CAP = 200;
+const MOOD_HISTORY_CAP = 60;
+
+// client-js and client-react each bundle their own RTVIEvent enum + event-data
+// types; they're nominally distinct to the type-checker but identical at
+// runtime (the pnpm-resolved client-js is a single instance — see the cast at
+// the provider below). This thin wrapper bridges that boundary so we can
+// subscribe with the client-js enum while keeping a fully typed handler. The
+// data type is supplied by the caller (T) since the client-react enum isn't
+// re-exported for us to align the handler against.
+function useVoiceEvent<T>(event: RTVIEvent, handler: (data: T) => void) {
+  (useRTVIClientEvent as (e: RTVIEvent, h: (data: T) => void) => void)(
+    event,
+    handler,
+  );
+}
+
 type Props = {
   slug: string;
   sessionId: string;
   personaName: string;
   scenarioTitle: string;
   initialHint: string | null;
+  // The guest's mood at the start of the call — seeds the live analytics panel
+  // so it shows a baseline the moment the conversation opens.
+  initialMood: MoodVector;
 };
+
+// Pure helpers (stripMoodNote, isCoachMessage, isMood, MOOD_AXES, wellbeing,
+// wellbeingLabel, clamp100, dedupeUserLine) + the TranscriptLine /
+// CoachServerMessage types live in ./voice-analytics so they can be unit-tested
+// outside the "use client" boundary. The JSX below consumes them.
+
+// One mood meter: label, current value, bar, and the change since last turn.
+function Meter({
+  label,
+  value,
+  delta,
+  goodHigh,
+}: {
+  label: string;
+  value: number;
+  delta: number | null;
+  goodHigh: boolean;
+}) {
+  const fill = goodHigh ? "bg-accent-600" : "bg-amber-500";
+  const improved = delta == null ? null : goodHigh ? delta > 0 : delta < 0;
+  return (
+    <div>
+      <div className="mb-1 flex items-center justify-between text-xs">
+        <span className="text-neutral-600">{label}</span>
+        <span className="flex items-center gap-1.5 tabular-nums">
+          <span className="font-semibold text-neutral-900">{value}</span>
+          {delta != null && delta !== 0 && (
+            <span className={improved ? "text-emerald-600" : "text-amber-600"}>
+              {delta > 0 ? `+${delta}` : delta}
+            </span>
+          )}
+        </span>
+      </div>
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-neutral-100">
+        <div
+          className={`h-full rounded-full ${fill} transition-[width] duration-500 ease-out`}
+          style={{ width: `${value}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+// Tiny sparkline of the wellbeing score across turns. Pure SVG, no deps.
+function Sparkline({ values }: { values: number[] }) {
+  const W = 240;
+  const H = 44;
+  const PAD = 4;
+  const n = values.length;
+  const pts = values
+    .map((v, i) => {
+      const x = PAD + (i * (W - 2 * PAD)) / Math.max(1, n - 1);
+      const y = H - PAD - (clamp100(v) / 100) * (H - 2 * PAD);
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(" ");
+  return (
+    <svg
+      viewBox={`0 0 ${W} ${H}`}
+      className="h-auto w-full"
+      role="img"
+      aria-label={`Overall guest sentiment trend across ${n} turns.`}
+    >
+      <line
+        x1={PAD}
+        y1={H / 2}
+        x2={W - PAD}
+        y2={H / 2}
+        stroke="#e7e5e4"
+        strokeDasharray="3 3"
+        strokeWidth="1"
+      />
+      <polyline
+        points={pts}
+        fill="none"
+        stroke="#4f46e5"
+        strokeWidth="2"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+// The live analytics side panel: headline sentiment, four mood meters with
+// per-turn deltas, and a trend sparkline. Seeded with the opening mood and
+// refreshed each turn from the worker's server message.
+function AnalyticsPanel({
+  history,
+  startMood,
+  personaName,
+}: {
+  // The rolling mood history (capped for the trend); may be empty before the
+  // first turn lands.
+  history: MoodVector[];
+  // The true opening mood — kept separate so the "since start" delta stays
+  // honest even after `history` is trimmed on a long call.
+  startMood: MoodVector;
+  personaName: string;
+}) {
+  const current = history[history.length - 1] ?? startMood;
+  const prev = history.length >= 2 ? history[history.length - 2] : null;
+
+  const w = wellbeing(current);
+  const wDelta = w - wellbeing(startMood);
+  const label = wellbeingLabel(w);
+  const series = history.map(wellbeing);
+
+  return (
+    <aside
+      aria-label="Live conversation analytics"
+      className="flex w-64 shrink-0 flex-col gap-5 overflow-y-auto border-l border-neutral-200 bg-neutral-50/60 p-4 lg:w-72"
+    >
+      {/* Headline sentiment */}
+      <div>
+        <p className="text-xs font-medium text-neutral-500">
+          How it&rsquo;s going
+        </p>
+        <div className="mt-1 flex items-baseline gap-2">
+          <span className="text-3xl font-semibold tabular-nums text-neutral-900">
+            {w}
+          </span>
+          <span className="text-sm text-neutral-400">/ 100</span>
+          {wDelta !== 0 && (
+            <span
+              className={`text-xs font-medium tabular-nums ${
+                wDelta > 0 ? "text-emerald-600" : "text-amber-600"
+              }`}
+            >
+              {wDelta > 0 ? `+${wDelta}` : wDelta} since start
+            </span>
+          )}
+        </div>
+        <p className={`mt-0.5 text-sm font-medium ${label.tone}`}>
+          {label.text}
+        </p>
+      </div>
+
+      {/* Mood meters */}
+      <div className="flex flex-col gap-3">
+        <p className="text-xs font-semibold tracking-wide text-neutral-500 uppercase">
+          {personaName}&rsquo;s mood
+        </p>
+        {MOOD_AXES.map((axis) => (
+          <Meter
+            key={axis.key}
+            label={axis.label}
+            value={clamp100(current[axis.key])}
+            delta={
+              prev
+                ? clamp100(current[axis.key]) - clamp100(prev[axis.key])
+                : null
+            }
+            goodHigh={axis.goodHigh}
+          />
+        ))}
+      </div>
+
+      {/* Trend */}
+      <div>
+        <p className="mb-1 text-xs font-semibold tracking-wide text-neutral-500 uppercase">
+          Sentiment trend
+        </p>
+        {series.length >= 2 ? (
+          <Sparkline values={series} />
+        ) : (
+          <p className="text-xs text-neutral-400">
+            Builds as the conversation goes on.
+          </p>
+        )}
+      </div>
+    </aside>
+  );
+}
 
 export function VoiceRoom(props: Props) {
   // Create the client once for this screen.
@@ -77,6 +300,7 @@ function VoiceRoomInner({
   personaName,
   scenarioTitle,
   initialHint,
+  initialMood,
 }: Props) {
   const client = usePipecatClient();
   const transportState = usePipecatClientTransportState();
@@ -84,6 +308,74 @@ function VoiceRoomInner({
   const router = useRouter();
   const [ending, setEnding] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Live coaching state. The coach strip starts at the opening hint and refreshes
+  // each turn from the worker's server message; the transcript appends each final
+  // user line + each guest line as the RTVI events arrive.
+  const [coachHint, setCoachHint] = useState<string | null>(initialHint);
+  const [transcript, setTranscript] = useState<TranscriptLine[]>([]);
+  // Mood history for the live analytics panel — seeded with the opening mood so
+  // the panel shows a baseline immediately, then one entry appended per turn.
+  const [moodHistory, setMoodHistory] = useState<MoodVector[]>([initialMood]);
+  const transcriptEndRef = useRef<HTMLDivElement>(null);
+
+  // Append a final user transcription line. Deepgram emits interim (final=false)
+  // results too — we only commit finalized lines so the panel doesn't churn.
+  useVoiceEvent<TranscriptData>(
+    RTVIEvent.UserTranscript,
+    useCallback((data) => {
+      if (!data.final) return;
+      const text = stripMoodNote(data.text ?? "");
+      if (!text) return;
+      // dedupeUserLine drops the mood-prefixed duplicate; cap the list so a long
+      // call can't grow the DOM without bound (returns the same ref on a no-op
+      // so React skips the re-render).
+      setTranscript((t) => {
+        const next = dedupeUserLine(t, text);
+        return next === t ? t : next.slice(-TRANSCRIPT_CAP);
+      });
+    }, []),
+  );
+
+  // Append the guest's spoken line. BotTranscript carries the bot's text per
+  // utterance in this client version.
+  useVoiceEvent<BotLLMTextData>(
+    RTVIEvent.BotTranscript,
+    useCallback((data) => {
+      const text = data.text?.trim();
+      if (!text) return;
+      setTranscript((t) =>
+        [...t, { role: "guest" as const, text }].slice(-TRANSCRIPT_CAP),
+      );
+    }, []),
+  );
+
+  // Per-turn server message pushed by the worker once the turn is persisted.
+  // Drives the coach strip (next-response advice) and the analytics panel
+  // (guest mood). The transcript is already built from the transcription events
+  // above, so we don't touch it here. The worker sends the payload as the event
+  // data directly (verified against @pipecat-ai/client-js 1.11.0); a non-coach
+  // ServerMessage simply fails the guard and is ignored.
+  useVoiceEvent<ServerMessageData>(
+    RTVIEvent.ServerMessage,
+    useCallback((data) => {
+      if (!isCoachMessage(data)) return;
+      // null = the app's coach call failed/timed out this turn → keep last hint.
+      if (data.coachHint) setCoachHint(data.coachHint);
+      // Likewise keep the prior mood if this turn's read didn't come through.
+      // Cap the rolling history; the honest "since start" delta uses initialMood.
+      if (isMood(data.mood)) {
+        const m = data.mood;
+        setMoodHistory((h) => [...h, m].slice(-MOOD_HISTORY_CAP));
+      }
+    }, []),
+  );
+
+  // Keep the newest line in view as the conversation grows.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: scroll on every append
+  useEffect(() => {
+    transcriptEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [transcript.length]);
 
   const isReady = transportState === "ready";
   const isConnecting = [
@@ -149,53 +441,98 @@ function VoiceRoomInner({
         </button>
       </header>
 
-      {initialHint && (
+      {coachHint && (
         <div className="border-b border-accent-100 bg-accent-50 px-6 py-2.5">
           <span className="text-xs font-semibold tracking-wide text-accent-500 uppercase">
             Coach
           </span>
-          <p className="text-sm text-accent-900">{initialHint}</p>
+          <p className="text-sm text-accent-900">{coachHint}</p>
         </div>
       )}
 
-      <div className="flex flex-1 flex-col items-center justify-center gap-6 p-6 text-center">
-        {!isReady ? (
-          <>
-            <div className="flex h-28 w-28 items-center justify-center rounded-full border-2 border-dashed border-neutral-300 text-neutral-400">
-              <Mic size={34} strokeWidth={1.75} aria-hidden="true" />
+      {!isReady ? (
+        <div className="flex flex-1 flex-col items-center justify-center gap-6 p-6 text-center">
+          <div className="flex h-28 w-28 items-center justify-center rounded-full border-2 border-dashed border-neutral-300 text-neutral-400">
+            <Mic size={34} strokeWidth={1.75} aria-hidden="true" />
+          </div>
+          <div className="max-w-sm">
+            <p className="font-medium text-neutral-800">
+              {isConnecting ? "Connecting…" : "Ready when you are"}
+            </p>
+            <p className="mt-1 text-sm text-neutral-500">
+              The guest will greet you, then reply as you speak. End the session
+              anytime to get your coaching feedback.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={connect}
+            disabled={isConnecting}
+            className="inline-flex items-center gap-2 rounded-lg bg-accent-600 px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-accent-700 disabled:opacity-50"
+          >
+            <Mic size={16} aria-hidden="true" />
+            {isConnecting ? "Connecting…" : "Connect & talk"}
+          </button>
+          {error && <p className="max-w-sm text-sm text-red-600">{error}</p>}
+        </div>
+      ) : (
+        <>
+          {/* Body: live transcript (left) + live analytics panel (right). */}
+          <div className="flex flex-1 overflow-hidden">
+            {/* Live transcript — appends each final user line + guest line as the
+                RTVI transcription events arrive. Reuses the chat.tsx bubble styling. */}
+            <div className="flex flex-1 flex-col overflow-y-auto px-4 py-4">
+              {transcript.length === 0 ? (
+                <p className="m-auto max-w-sm text-center text-sm text-neutral-400">
+                  Listening… your conversation with {personaName} will appear
+                  here.
+                </p>
+              ) : (
+                <div className="mx-auto flex w-full max-w-xl flex-col gap-3">
+                  {transcript.map((m, i) => (
+                    <div
+                      // biome-ignore lint/suspicious/noArrayIndexKey: append-only transcript — entries are never reordered or removed
+                      key={`${i}-${m.role}`}
+                      className={`max-w-[80%] rounded-2xl px-3.5 py-2.5 text-sm ${
+                        m.role === "guest"
+                          ? "self-start border border-neutral-200 bg-white text-neutral-900"
+                          : "self-end bg-neutral-900 text-white"
+                      }`}
+                    >
+                      {m.text}
+                    </div>
+                  ))}
+                  <div ref={transcriptEndRef} />
+                </div>
+              )}
             </div>
-            <div className="max-w-sm">
-              <p className="font-medium text-neutral-800">
-                {isConnecting ? "Connecting…" : "Ready when you are"}
-              </p>
-              <p className="mt-1 text-sm text-neutral-500">
-                The guest will greet you, then reply as you speak. End the
-                session anytime to get your coaching feedback.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={connect}
-              disabled={isConnecting}
-              className="inline-flex items-center gap-2 rounded-lg bg-accent-600 px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-accent-700 disabled:opacity-50"
-            >
-              <Mic size={16} aria-hidden="true" />
-              {isConnecting ? "Connecting…" : "Connect & talk"}
-            </button>
-          </>
-        ) : (
-          <>
-            <div className="flex h-28 w-28 animate-pulse items-center justify-center rounded-full bg-accent-100 text-accent-700">
-              <Mic size={34} strokeWidth={1.75} aria-hidden="true" />
-            </div>
-            <div className="max-w-sm">
-              <p className="font-medium text-neutral-800">
-                {isMicEnabled ? "Listening — speak naturally" : "Mic muted"}
-              </p>
-              <p className="mt-1 text-sm text-neutral-500">
-                You're connected to {personaName}.
-              </p>
-            </div>
+            <AnalyticsPanel
+              history={moodHistory}
+              startMood={initialMood}
+              personaName={personaName}
+            />
+          </div>
+
+          {error && (
+            <p className="px-4 pb-1 text-center text-sm text-red-600">
+              {error}
+            </p>
+          )}
+
+          {/* Mic status + mute control footer. */}
+          <div className="flex items-center justify-between gap-3 border-t border-neutral-200 bg-white px-4 py-3">
+            <span className="inline-flex items-center gap-2 text-sm text-neutral-700">
+              <span
+                className={`flex h-8 w-8 items-center justify-center rounded-full ${
+                  isMicEnabled
+                    ? "animate-pulse bg-accent-100 text-accent-700"
+                    : "bg-neutral-100 text-neutral-400"
+                }`}
+              >
+                <Mic size={16} strokeWidth={1.75} aria-hidden="true" />
+              </span>
+              {isMicEnabled ? "Listening — speak naturally" : "Mic muted"}
+            </span>
             <button
               type="button"
               onClick={() => enableMic(!isMicEnabled)}
@@ -208,10 +545,9 @@ function VoiceRoomInner({
               )}
               {isMicEnabled ? "Mute" : "Unmute"}
             </button>
-          </>
-        )}
-        {error && <p className="max-w-sm text-sm text-red-600">{error}</p>}
-      </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

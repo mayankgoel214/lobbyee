@@ -44,6 +44,7 @@ from pipecat.processors.aggregators.llm_response_universal import (
     LLMUserAggregatorParams,
 )
 from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
+from pipecat.processors.frameworks.rtvi import RTVIProcessor
 from pipecat.runner.types import RunnerArguments
 from pipecat.runner.utils import create_transport
 from pipecat.services.cartesia.tts import CartesiaTTSService
@@ -103,13 +104,20 @@ class MoodInjector(FrameProcessor):
 async def _post_turn(
     client: httpx.AsyncClient,
     state: dict,
+    rtvi: RTVIProcessor,
     idempotency_key: str,
     user_text: str,
     guest_text: str,
 ):
     """Persist one completed turn and adopt the mood the app returns for the next
     guest reply. Bounded retry (3 attempts, exp backoff) on 5xx / network errors,
-    REUSING the same idempotency key per wire-contract §2."""
+    REUSING the same idempotency key per wire-contract §2.
+
+    On a successful save, ADDITIVELY push the live coach hint + the two dialogue
+    lines to the connected client as a custom RTVI server message so the in-app
+    coach strip + transcript update per turn. This is presentation-only — the
+    same coachHint the app already returns here — and a failure to send it must
+    NOT lose the turn (it's already persisted)."""
     body = {
         "idempotencyKey": idempotency_key,
         "userText": user_text,
@@ -140,6 +148,29 @@ async def _post_turn(
             logger.info(
                 f"turn saved @{data.get('guestTurnIndex')} status={data.get('status')}"
             )
+            # Additive live-coaching push: send the coach hint + this turn's two
+            # lines to the client. Best-effort — the turn is already persisted, so
+            # a send failure here must not surface as a lost turn.
+            try:
+                # Bounded so a send that blocks while the transport is closing
+                # (on disconnect) can't stall the on_client_disconnected drain.
+                await asyncio.wait_for(
+                    rtvi.send_server_message(
+                        {
+                            "type": "coach",
+                            "coachHint": data.get("coachHint"),
+                            # The app's freshly-read guest mood vector for this turn
+                            # ({frustration,trust,patience,satisfaction} 0-100) —
+                            # drives the in-app live analytics panel. Presentation-only.
+                            "mood": data.get("mood"),
+                            "userText": user_text,
+                            "guestText": guest_text,
+                        }
+                    ),
+                    timeout=2.0,
+                )
+            except Exception as e:  # noqa: BLE001 — push is best-effort (incl. timeout)
+                logger.warning(f"coach server-message push failed (turn still saved): {e}")
             return
         if r.status_code == 409:
             # Terminal: session ended or real ordering collision — don't retry.
@@ -217,9 +248,16 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
         user_params=LLMUserAggregatorParams(vad_analyzer=SileroVADAnalyzer()),
     )
 
+    # RTVI processor: lets us push custom server messages (the per-turn coach
+    # hint) down to the connected client. Must sit upstream of transport.output()
+    # so send_server_message's frame reaches the transport. Its observer is added
+    # to the task below (Pipecat requires both, or it logs an error).
+    rtvi = RTVIProcessor(transport=transport)
+
     pipeline = Pipeline(
         [
             transport.input(),
+            rtvi,  # carries server messages (coach hints) out to the client
             stt,
             mood_injector,  # prefix mood note onto the user's words
             user_aggregator,
@@ -232,6 +270,7 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
     task = PipelineTask(
         pipeline,
         params=PipelineParams(enable_metrics=True, enable_usage_metrics=True),
+        observers=[rtvi.create_rtvi_observer()],
     )
 
     @assistant_aggregator.event_handler("on_assistant_turn_stopped")
@@ -245,7 +284,7 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
         # Mint the idempotency key ONCE here so retries inside _post_turn reuse it.
         idempotency_key = str(uuid.uuid4())
         t = asyncio.create_task(
-            _post_turn(client, state, idempotency_key, user_text, guest_text)
+            _post_turn(client, state, rtvi, idempotency_key, user_text, guest_text)
         )
         pending_posts.add(t)
         t.add_done_callback(pending_posts.discard)

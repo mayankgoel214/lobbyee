@@ -4,6 +4,7 @@
 // browser-only and sizeable, so we load VoiceRoom on demand (ssr:false) — it
 // never ships to a text-session page or the server bundle.
 import dynamic from "next/dynamic";
+import type { MoodVector } from "@/lib/ai/mood";
 
 type Props = {
   slug: string;
@@ -11,6 +12,7 @@ type Props = {
   personaName: string;
   scenarioTitle: string;
   initialHint: string | null;
+  initialMood: MoodVector;
 };
 
 const VoiceRoom = dynamic(

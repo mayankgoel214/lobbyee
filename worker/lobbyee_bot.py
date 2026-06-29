@@ -391,7 +391,10 @@ async def serve():
     from fastapi import BackgroundTasks, FastAPI
     from fastapi.middleware.cors import CORSMiddleware
     from pipecat.runner.types import SmallWebRTCRunnerArguments
-    from pipecat.transports.smallwebrtc.connection import SmallWebRTCConnection
+    from pipecat.transports.smallwebrtc.connection import (
+        IceServer,
+        SmallWebRTCConnection,
+    )
     from pipecat.transports.smallwebrtc.request_handler import (
         IceCandidate,
         SmallWebRTCPatchRequest,
@@ -399,7 +402,31 @@ async def serve():
         SmallWebRTCRequestHandler,
     )
 
-    handler = SmallWebRTCRequestHandler()  # ConnectionMode.MULTIPLE by default
+    # ICE servers. STUN alone suffices on permissive networks, but on a cloud
+    # host (Fly) the worker's media uses ephemeral UDP ports the platform can't
+    # route — a TURN relay is what actually carries the audio there. Configure it
+    # via env (VOICE_TURN_URLS, VOICE_TURN_USERNAME, VOICE_TURN_CREDENTIAL); the
+    # browser must point at the SAME TURN (NEXT_PUBLIC_VOICE_ICE_SERVERS).
+    ice_servers = [IceServer(urls="stun:stun.l.google.com:19302")]
+    turn_urls = os.getenv("VOICE_TURN_URLS", "").strip()
+    if turn_urls:
+        turn_user = os.getenv("VOICE_TURN_USERNAME") or None
+        turn_cred = os.getenv("VOICE_TURN_CREDENTIAL") or None
+        ice_servers += [
+            IceServer(urls=u.strip(), username=turn_user, credential=turn_cred)
+            for u in turn_urls.split(",")
+            if u.strip()
+        ]
+        logger.info(f"TURN configured ({len(ice_servers) - 1} relay url(s))")
+    else:
+        logger.warning(
+            "No TURN configured (VOICE_TURN_URLS unset) — STUN only. Media may "
+            "fail behind strict NATs or on a cloud host; see worker/DEPLOY.md."
+        )
+
+    handler = SmallWebRTCRequestHandler(  # ConnectionMode.MULTIPLE by default
+        ice_servers=ice_servers
+    )
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI):

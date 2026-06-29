@@ -61,6 +61,27 @@ const WORKER_URL = (
 const TRANSCRIPT_CAP = 200;
 const MOOD_HISTORY_CAP = 60;
 
+// ICE servers for the browser's WebRTC peer. STUN-only by default (fine on
+// localhost / permissive networks). In production set NEXT_PUBLIC_VOICE_ICE_SERVERS
+// to a JSON RTCIceServer[] that includes the SAME TURN relay the worker uses
+// (worker/DEPLOY.md) — without it, media can't traverse strict NATs or the
+// cloud host. Malformed JSON falls back to STUN so a bad env can't break connect.
+function parseIceServers(): RTCIceServer[] {
+  const fallback: RTCIceServer[] = [{ urls: "stun:stun.l.google.com:19302" }];
+  const raw = process.env.NEXT_PUBLIC_VOICE_ICE_SERVERS;
+  if (!raw) return fallback;
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) && parsed.length ? parsed : fallback;
+  } catch {
+    console.warn(
+      "NEXT_PUBLIC_VOICE_ICE_SERVERS is not valid JSON; using STUN.",
+    );
+    return fallback;
+  }
+}
+const ICE_SERVERS = parseIceServers();
+
 // client-js and client-react each bundle their own RTVIEvent enum + event-data
 // types; they're nominally distinct to the type-checker but identical at
 // runtime (the pnpm-resolved client-js is a single instance — see the cast at
@@ -265,7 +286,7 @@ export function VoiceRoom(props: Props) {
   const [client] = useState(
     () =>
       new PipecatClient({
-        transport: new SmallWebRTCTransport(),
+        transport: new SmallWebRTCTransport({ iceServers: ICE_SERVERS }),
         enableMic: true,
         enableCam: false,
       }),

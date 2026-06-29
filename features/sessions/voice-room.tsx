@@ -388,8 +388,32 @@ function VoiceRoomInner({
   async function connect() {
     setError(null);
     try {
+      // Mint a short-lived token for THIS session (cookie-authed; the endpoint
+      // re-checks RLS + ownership). We hand it to the worker as requestData on
+      // the WebRTC offer — the worker reads it per-connection and runs this
+      // session, so one shared worker serves every trainee. The token only
+      // authorizes voice persistence for this session and expires; the grading
+      // rubric never travels with it (the worker fetches the snapshot itself).
+      const res = await fetch("/api/voice/session-token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId }),
+      });
+      if (!res.ok) {
+        setError(
+          res.status === 503
+            ? "Voice isn't available on this server yet."
+            : "Couldn't start the voice session. Please try again.",
+        );
+        return;
+      }
+      const { token } = (await res.json()) as { token: string };
+
       await client.connect({
-        webrtcRequestParams: { endpoint: `${WORKER_URL}/api/offer` },
+        webrtcRequestParams: {
+          endpoint: `${WORKER_URL}/api/offer`,
+          requestData: { token },
+        },
       });
     } catch (e) {
       console.error("voice connect failed:", e);

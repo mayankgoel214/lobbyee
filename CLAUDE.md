@@ -5,7 +5,7 @@ AI guest-conversation training simulator for hospitality staff.
 ## Infra IDs (don't re-derive)
 - Repo: github.com/mayankgoel214/lobbyee (public)
 - Live: https://lobbyee.vercel.app — push to `main` auto-deploys
-- Supabase project: `hmpdatpvevkhnaieuqeq` (us-west-2; pooler port :6543, direct :5432)
+- Supabase project: `dmwldaudlwjxgrlalxze` (us-west-2; pooler port :6543, direct :5432) — migrated 2026-06-28; old `hmpdatpvevkhnaieuqeq` was paused/over-limit
 - Vercel: team `team_xzJ3NshovLh6p57HWNXYaM5B`, project `prj_n772GHzKlaoP836wR1RscdUPaCDo`
 - Figma: figma.com/design/zuU8iD7elXyGsLoX8qcvCg
 

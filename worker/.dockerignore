@@ -1,0 +1,12 @@
+# Keep the image lean + never ship local secrets or the virtualenv.
+.venv/
+__pycache__/
+*.pyc
+.env
+.env.*
+scripts/
+README.md
+DEPLOY.md
+fly.toml
+.dockerignore
+Dockerfile

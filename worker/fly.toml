@@ -1,0 +1,45 @@
+# Fly.io config for the Lobbyee voice worker (multi-session).
+# `fly launch --no-deploy` will adopt this; then set secrets + `fly deploy`.
+# See DEPLOY.md for the full walkthrough.
+#
+# NOTE on WebRTC: only the HTTPS SIGNALING (/api/offer, /health) runs through
+# Fly's proxy below. The actual AUDIO is WebRTC media over UDP on ephemeral
+# ports that Fly does NOT route — so media flows through a TURN relay instead
+# (set VOICE_TURN_* secrets; DEPLOY.md). That's why no UDP service is declared
+# here: with TURN, none is needed; without TURN, exposing one port wouldn't help
+# (aiortc uses random ports).
+
+app = "lobbyee-voice"          # change if you want a different app name
+primary_region = "iad"          # pick one near your users / your Supabase region
+
+[build]
+
+[env]
+  PORT = "8080"
+  LOBBYEE_BASE_URL = "https://lobbyee.vercel.app"
+  # Lock CORS to the app origin in production:
+  VOICE_ALLOWED_ORIGINS = "https://lobbyee.vercel.app"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  # SCALE TO ZERO — no fixed cost. The machine fully STOPS when idle (you pay $0
+  # for compute while nobody's on a call) and auto-starts on the next connection
+  # (~5–10s cold start on the first call after idle). Switch "stop"→"suspend" for
+  # a faster (~1s) wake if you ever want it, at a small always-on storage cost.
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+  [http_service.checks]
+    [http_service.checks.health]
+      method = "GET"
+      path = "/health"
+      interval = "30s"
+      timeout = "5s"
+      grace_period = "10s"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "1gb"                   # STT/TTS/VAD + a few concurrent sessions

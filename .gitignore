@@ -55,3 +55,6 @@ graphify-out/
 
 # Playwright MCP session artifacts
 .playwright-mcp/
+
+# Voice deploy: generated Vercel env values (TURN creds) — do not commit
+worker/vercel-voice-env.txt

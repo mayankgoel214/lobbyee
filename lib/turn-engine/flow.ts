@@ -43,6 +43,9 @@ export async function runTurn(
     prevMood: snapshot.currentMood,
     lastGuestText: lastGuest,
     userText,
+    underlyingNeed: snapshot.scenario.underlyingNeed ?? null,
+    resolutionPath: snapshot.scenario.resolutionPath ?? null,
+    resolvability: snapshot.scenario.resolvability ?? null,
   });
 
   const history: Turn[] = snapshot.messages

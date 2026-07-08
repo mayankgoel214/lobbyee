@@ -7,7 +7,9 @@
 // Rubric authorship: v1 is founder-authored. A hospitality SME pass is an
 // open item (architecture §14) — the gold-set harness exists to measure any
 // rewrite against human ratings before it ships.
-export const EVALUATOR_VERSION = "evaluator@v1";
+import { asResolvability, type Resolvability } from "@/lib/scenario/depth";
+
+export const EVALUATOR_VERSION = "evaluator@v2";
 
 export const COMPETENCIES = [
   "empathy",
@@ -21,6 +23,10 @@ export type EvalScenarioContext = {
   title: string;
   situation: string;
   successCriteria: string[];
+  /** The real issue beneath the surface complaint, if this scenario has one. */
+  underlyingNeed?: string | null;
+  resolutionPath?: string | null;
+  resolvability?: Resolvability | null;
 };
 
 export type EvalPersonaContext = {
@@ -53,16 +59,16 @@ Score anchors (1-5):
   },
   problem_solving: {
     label: "Problem-solving",
-    rubric: `PROBLEM-SOLVING — does the staff member actually move the guest's problem toward a resolution?
+    rubric: `PROBLEM-SOLVING — does the staff member actually move the guest's problem toward a resolution, including uncovering the REAL issue beneath the surface complaint?
 
 Score anchors (1-5):
 1 — No ownership. Deflects, blames policy or another department, leaves the guest with nothing.
 2 — Passive. Acknowledges the problem but waits for the guest to propose everything; offers help only when cornered.
-3 — Single-track. Offers one fix; if the guest declines it, has no fallback and the conversation stalls.
-4 — Resourceful. Diagnoses before prescribing, offers a concrete and relevant resolution, adapts when the first option doesn't land.
-5 — Owns it end-to-end. Pairs every constraint with an alternative, offers options matched to what THIS guest actually needs, and closes with a specific committed action.
+3 — Single-track. Treats only the surface complaint; offers one fix and, if it's declined, has no fallback and the conversation stalls.
+4 — Resourceful. Diagnoses before prescribing — asks what's really going on — offers a concrete, relevant resolution, and adapts when the first option doesn't land.
+5 — Owns it end-to-end. Uncovers the guest's underlying need (not just the stated complaint), pairs every constraint with an alternative, offers options matched to what THIS guest actually needs, and closes with a specific committed action.
 
-Weigh the scenario's success criteria (provided below) heavily — they describe what a strong resolution looks like for this exact situation.`,
+Weigh the scenario's success criteria (provided below) heavily — they describe what a strong resolution looks like for this exact situation. If an "underlying need" is provided below, treat DISCOVERING and ADDRESSING it as the difference between a competent handling (3-4) and an excellent one (5); a staff member who only ever treated the surface symptom cannot score above 3 here, however smoothly they did it.`,
   },
   professionalism: {
     label: "Professionalism",
@@ -112,6 +118,40 @@ Scoring discipline:
 Return JSON matching the response schema: score (integer 1-5), summary, evidence (0-6 items, each with kind "strength" or "missed_opportunity", messageId, quote, rationale).`;
 }
 
+/** The hidden layer, surfaced to the grader (never to the trainee's browser):
+ *  what the guest was really after, and how winnable the interaction was.
+ *  Empty for a plain scenario, so v2 grading of depthless scenarios is
+ *  unchanged. */
+function renderScenarioDepth(scenario: EvalScenarioContext): string {
+  const resolvability = asResolvability(scenario.resolvability);
+  const lines: string[] = [];
+  if (scenario.underlyingNeed?.trim()) {
+    lines.push(
+      `The guest's REAL underlying need (which they did NOT state outright): ${scenario.underlyingNeed.trim()}`,
+    );
+    if (scenario.resolutionPath?.trim()) {
+      lines.push(
+        `What would genuinely resolve it: ${scenario.resolutionPath.trim()}`,
+      );
+    }
+    lines.push(
+      "Credit the staff member for uncovering and addressing this; note it as a missed opportunity if they only treated the surface complaint.",
+    );
+  }
+  if (resolvability === "partial") {
+    lines.push(
+      "This situation was only PARTIALLY resolvable — a real constraint could not fully bend. Do not penalize the staff member for a guest who stays somewhat unhappy; judge whether they did the best that was possible.",
+    );
+  } else if (resolvability === "unwinnable") {
+    lines.push(
+      "This situation was UNWINNABLE — the guest could not get what they wanted. The measure of success is de-escalation and a respectful, honest 'no', NOT the guest's final happiness. Do not penalize the staff member because the guest remained disappointed.",
+    );
+  }
+  return lines.length
+    ? `\n# What was really going on\n${lines.join("\n")}\n`
+    : "";
+}
+
 export function renderEvaluatorUser(input: {
   scenario: EvalScenarioContext;
   persona: EvalPersonaContext;
@@ -126,7 +166,7 @@ ${input.scenario.title}: ${input.scenario.situation}
 
 What a strong resolution looks like for this scenario:
 ${criteria}
-
+${renderScenarioDepth(input.scenario)}
 # Guest
 ${input.persona.name} — ${input.persona.guestType}
 

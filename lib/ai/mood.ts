@@ -5,6 +5,7 @@
 import "server-only";
 import { Type } from "@google/genai";
 import { z } from "zod";
+import type { Resolvability } from "@/lib/scenario/depth";
 import {
   MOOD_UPDATE_VERSION,
   renderMoodUpdatePrompt,
@@ -46,6 +47,9 @@ export async function updateMood(input: {
   prevMood: MoodVector;
   lastGuestText: string | null;
   userText: string;
+  underlyingNeed?: string | null;
+  resolutionPath?: string | null;
+  resolvability?: Resolvability | null;
 }): Promise<MoodVector> {
   try {
     const response = await gemini().models.generateContent({

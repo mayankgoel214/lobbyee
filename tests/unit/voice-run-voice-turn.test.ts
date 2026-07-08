@@ -76,6 +76,9 @@ describe("runVoiceTurn", () => {
       prevMood: priorMood,
       lastGuestText: "I've been waiting ages.",
       userText: input.userText,
+      underlyingNeed: null,
+      resolutionPath: null,
+      resolvability: null,
     });
     // Coach reacts to the NEW mood, the rubric, and the prior hint.
     expect(generateCoachHint).toHaveBeenCalledWith({

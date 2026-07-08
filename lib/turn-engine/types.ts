@@ -6,6 +6,7 @@
 // module may import Next.js, Prisma, or a concrete AI SDK — all I/O goes
 // through the ports below so the orchestration stays pure and unit-testable.
 import type { MoodVector } from "@/lib/ai/mood";
+import type { Resolvability } from "@/lib/scenario/depth";
 import type {
   PersonaForPrompt,
   ScenarioForPrompt,
@@ -53,6 +54,9 @@ export interface AIPort {
     prevMood: MoodVector;
     lastGuestText: string | null;
     userText: string;
+    underlyingNeed?: string | null;
+    resolutionPath?: string | null;
+    resolvability?: Resolvability | null;
   }): Promise<MoodVector>;
   generateGuest(input: {
     persona: PersonaForPrompt;

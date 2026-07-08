@@ -162,6 +162,9 @@ async function processSession(sessionId: string): Promise<void> {
       title: session.scenario.title,
       situation: session.scenario.situation,
       successCriteria: criteria.success ? criteria.data : [],
+      underlyingNeed: session.scenario.underlyingNeed,
+      resolutionPath: session.scenario.resolutionPath,
+      resolvability: session.scenario.resolvability,
     },
     persona: {
       name: session.persona.name,

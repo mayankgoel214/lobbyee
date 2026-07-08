@@ -55,6 +55,9 @@ export async function runVoiceTurn(
       prevMood: snapshot.currentMood,
       lastGuestText: lastGuest,
       userText: input.userText,
+      underlyingNeed: snapshot.scenario.underlyingNeed ?? null,
+      resolutionPath: snapshot.scenario.resolutionPath ?? null,
+      resolvability: snapshot.scenario.resolvability ?? null,
     });
   } catch (e) {
     console.error("voice mood update failed; keeping prior mood:", e);

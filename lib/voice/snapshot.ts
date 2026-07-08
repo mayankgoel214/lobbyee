@@ -54,6 +54,9 @@ export async function loadVoiceSnapshot(
     scenario: {
       title: session.scenario.title,
       situation: session.scenario.situation,
+      underlyingNeed: session.scenario.underlyingNeed,
+      resolutionPath: session.scenario.resolutionPath,
+      resolvability: session.scenario.resolvability,
     },
     successCriteria: asCriteria(session.scenario.successCriteria),
     currentMood: isMoodVector(session.currentMood)

@@ -61,11 +61,12 @@ export default function NewScenarioPage({
   return (
     <main className="mx-auto max-w-xl p-6">
       <h1 className="mb-1 text-xl font-semibold text-neutral-900">
-        New scenario
+        New situation
       </h1>
       <p className="mb-6 text-sm text-neutral-500">
-        Written guest-agnostic — any persona can play it. The success criteria
-        drive the coaching, so specific beats vague.
+        Describe what's happening, not who the guest is — any guest can play
+        this situation. The success criteria drive the coaching, so specific
+        beats vague.
       </p>
       <Card>
         <form action={action} className="flex flex-col gap-4">
@@ -216,7 +217,7 @@ export default function NewScenarioPage({
 
           <FormError>{state.error}</FormError>
           <Button type="submit" disabled={pending || suggesting}>
-            {pending ? "Saving…" : "Save scenario"}
+            {pending ? "Saving…" : "Save situation"}
           </Button>
         </form>
       </Card>

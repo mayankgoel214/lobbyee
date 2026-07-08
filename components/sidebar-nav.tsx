@@ -40,13 +40,13 @@ export function SidebarNav({
       adminOnly: true,
     },
     {
-      label: "Personas",
+      label: "Guests",
       href: `/w/${slug}/personas`,
       icon: Users,
       adminOnly: true,
     },
     {
-      label: "Scenarios",
+      label: "Situations",
       href: `/w/${slug}/scenarios`,
       icon: ClipboardList,
       adminOnly: true,

@@ -21,18 +21,18 @@ export default async function PersonasPage({
     <main className="mx-auto max-w-3xl p-6">
       <div className="mb-6 flex items-start justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-neutral-900">
-            Guest personas
-          </h1>
+          <h1 className="text-xl font-semibold text-neutral-900">Guests</h1>
           <p className="mt-1 text-sm text-neutral-500">
-            The &ldquo;who&rdquo; of every training session.
+            The <em>who</em> — the people your staff practice with, each with
+            their own temperament and backstory. One guest can play any
+            situation, so a few guests go a long way.
           </p>
         </div>
         {admin && (
           <Link href={`/w/${slug}/personas/new`}>
             <Button>
               <Plus size={16} strokeWidth={2} aria-hidden="true" />
-              New persona
+              New guest
             </Button>
           </Link>
         )}

@@ -26,12 +26,10 @@ export default function NewPersonaPage({
 
   return (
     <main className="mx-auto max-w-xl p-6">
-      <h1 className="mb-1 text-xl font-semibold text-neutral-900">
-        New guest persona
-      </h1>
+      <h1 className="mb-1 text-xl font-semibold text-neutral-900">New guest</h1>
       <p className="mb-6 text-sm text-neutral-500">
-        Built from this form only — no raw prompts. Keeps guests realistic and
-        safe.
+        Define who this guest is — their temperament and story. You'll pair them
+        with any situation when you start a session.
       </p>
       <Card>
         <form action={action} className="flex flex-col gap-4">
@@ -88,7 +86,7 @@ export default function NewPersonaPage({
           </fieldset>
           <FormError>{state.error}</FormError>
           <Button type="submit" disabled={pending}>
-            {pending ? "Saving…" : "Save persona"}
+            {pending ? "Saving…" : "Save guest"}
           </Button>
         </form>
       </Card>

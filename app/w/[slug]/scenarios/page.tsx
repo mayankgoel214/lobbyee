@@ -54,16 +54,18 @@ export default async function ScenariosPage({
     <main className="mx-auto max-w-3xl p-6">
       <div className="mb-6 flex items-start justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-neutral-900">Scenarios</h1>
+          <h1 className="text-xl font-semibold text-neutral-900">Situations</h1>
           <p className="mt-1 text-sm text-neutral-500">
-            The &ldquo;what&rdquo; — situations your team practices.
+            The <em>what</em> — the problem your staff practice handling. Any
+            guest can play any situation, so a handful of guests times these
+            situations is a lot of practice.
           </p>
         </div>
         {admin && (
           <Link href={`/w/${slug}/scenarios/new`}>
             <Button>
               <Plus size={16} strokeWidth={2} aria-hidden="true" />
-              New scenario
+              New situation
             </Button>
           </Link>
         )}

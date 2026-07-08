@@ -11,9 +11,10 @@ AI guest-conversation training simulator for hospitality staff.
 
 ## Phase status
 - Phases 0–4: **COMPLETE** — auth, onboarding, personas/scenarios CRUD, conversation engine, eval engine, manager dashboard, billing/session cap all live and prod-swept.
-- **Pending:** Stripe account wiring — Mayank provides STRIPE_SECRET_KEY. Then: create $100/mo product+price, webhook → /api/stripe/webhook, set 3 env vars local+Vercel, E2E with 4242 card.
-- **Security debt:** Rotate Supabase DB password + service-role key before real users (pasted in chat 2026-06-11). Update Vercel env + .env.local after.
-- **Gemini billing:** Free tier = 20 req/day (~1-2 sessions). Enable paid tier (~$0.02-0.04/session) before launch — Mayank's call.
+- **Stripe:** TEST MODE fully wired + E2E-verified 2026-07-07 — 3 env vars in Vercel, webhook subscribed to the 4 handled events, 4242 checkout → subscription → cancel all verified. Live mode still requires activating the Stripe account (business details + bank) then swapping live keys.
+- **Security:** DB password + service-role key already ROTATED via the 2026-06-28 Supabase project migration (fresh project = fresh creds; old `hmpdatpvevkhnaieuqeq` paused). Remaining hardening: no rate limiting yet (add Upstash/Vercel KV in front of voice-token + sendTurn + AI-suggest before broad outreach); Sentry not yet wired.
+- **Gemini billing:** ENABLED (Paid Tier 1) 2026-06-12 — the 20 req/day free-tier limit no longer applies.
+- **Scenario depth:** "underlying need" + resolvability mechanic LIVE (text mode) 2026-07-07; 15-scenario default library; voice-depth deferred (needs a worker-only credential — see [[project_lobbyee]] memory).
 
 ## Stack
 - Next.js 15 App Router + TypeScript strict + Tailwind + shadcn/ui (`components/ui.tsx`)

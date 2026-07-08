@@ -1,12 +1,11 @@
 "use client";
 
 import { Sparkles } from "lucide-react";
-import { use, useActionState, useEffect, useState } from "react";
+import { use, useActionState, useState } from "react";
 import { Button, Card, FormError, Input, Label } from "@/components/ui";
 import {
   createScenarioAction,
   type ScenarioFormState,
-  type SuggestDepthState,
   suggestScenarioDepthAction,
 } from "@/features/scenarios/actions";
 import {
@@ -17,7 +16,6 @@ import {
 } from "@/lib/scenario/depth";
 
 const initial: ScenarioFormState = {};
-const suggestInitial: SuggestDepthState = {};
 
 const textareaClass =
   "w-full rounded-lg border border-neutral-300 bg-white px-3.5 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none transition-colors focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20";
@@ -32,13 +30,9 @@ export default function NewScenarioPage({
     createScenarioAction,
     initial,
   );
-  const [suggestState, suggestAction, suggesting] = useActionState(
-    suggestScenarioDepthAction,
-    suggestInitial,
-  );
 
-  // Title + situation are controlled only so we can gate the "Suggest" button
-  // (which spends a Gemini call) until both are filled.
+  // Title + situation are controlled so we can gate the "Suggest" button (which
+  // spends a Gemini call) until both are filled.
   const [title, setTitle] = useState("");
   const [situation, setSituation] = useState("");
   // Controlled so the AI suggestion can pre-fill them; the manager still edits
@@ -48,15 +42,39 @@ export default function NewScenarioPage({
   const [resolvability, setResolvability] =
     useState<Resolvability>("resolvable");
 
+  // Suggest is NOT a form submit — calling the server action directly avoids
+  // submitting (and, in React 19, RESETTING) the whole create form, which would
+  // wipe the uncontrolled Success criteria / Difficulty fields.
+  const [suggesting, setSuggesting] = useState(false);
+  const [suggestError, setSuggestError] = useState<string | null>(null);
+
   const canSuggest = title.trim().length >= 3 && situation.trim().length >= 20;
 
-  useEffect(() => {
-    if (suggestState.suggestion) {
-      setUnderlyingNeed(suggestState.suggestion.underlyingNeed);
-      setResolutionPath(suggestState.suggestion.resolutionPath);
-      setResolvability(suggestState.suggestion.resolvability);
+  async function handleSuggest() {
+    if (!canSuggest || suggesting) return;
+    setSuggesting(true);
+    setSuggestError(null);
+    try {
+      const fd = new FormData();
+      fd.set("slug", slug);
+      fd.set("title", title);
+      fd.set("situation", situation);
+      const res = await suggestScenarioDepthAction({}, fd);
+      if (res.suggestion) {
+        setUnderlyingNeed(res.suggestion.underlyingNeed);
+        setResolutionPath(res.suggestion.resolutionPath);
+        setResolvability(res.suggestion.resolvability);
+      } else {
+        setSuggestError(
+          res.error ?? "Couldn't draft a suggestion — try again.",
+        );
+      }
+    } catch {
+      setSuggestError("Couldn't draft a suggestion — try again.");
+    } finally {
+      setSuggesting(false);
     }
-  }, [suggestState.suggestion]);
+  }
 
   return (
     <main className="mx-auto max-w-xl p-6">
@@ -134,10 +152,9 @@ export default function NewScenarioPage({
                 <span className="font-normal text-neutral-500">(optional)</span>
               </span>
               <Button
-                type="submit"
+                type="button"
                 variant="secondary"
-                formAction={suggestAction}
-                formNoValidate
+                onClick={handleSuggest}
                 disabled={suggesting || !canSuggest}
                 title={
                   canSuggest ? undefined : "Add a title and situation first"
@@ -208,10 +225,8 @@ export default function NewScenarioPage({
               </p>
             </div>
 
-            {suggestState.error ? (
-              <p className="mt-2 text-xs text-amber-700">
-                {suggestState.error}
-              </p>
+            {suggestError ? (
+              <p className="mt-2 text-xs text-amber-700">{suggestError}</p>
             ) : null}
           </div>
 

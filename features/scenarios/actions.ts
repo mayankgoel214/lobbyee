@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { z } from "zod";
 import {
   type ScenarioDepthSuggestion,
@@ -87,7 +88,9 @@ export async function createScenarioAction(
     },
   });
   revalidatePath(`/w/${slug}/scenarios`);
-  return {};
+  // Redirect on success so the manager lands back on the list and sees the new
+  // situation (redirect() throws internally, so nothing after it runs).
+  redirect(`/w/${slug}/scenarios`);
 }
 
 // --- AI depth suggestion ---------------------------------------------------

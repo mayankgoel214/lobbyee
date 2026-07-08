@@ -9,6 +9,7 @@ import {
 } from "@/lib/ai/scenario-designer";
 import { isAdmin, requireMembership } from "@/lib/auth/session";
 import { dbForRequest } from "@/lib/db/scoped";
+import { rateLimit } from "@/lib/rate-limit";
 import { RESOLVABILITY } from "@/lib/scenario/depth";
 
 export type ScenarioFormState = { error?: string };
@@ -123,9 +124,20 @@ export async function suggestScenarioDepthAction(
   const { slug, title, situation } = parsed.data;
 
   // Gate on admin membership before spending a model call.
-  const { membership } = await requireMembership(slug);
+  const { user, membership } = await requireMembership(slug);
   if (!isAdmin(membership.role)) {
     return { error: "Only owners and managers can create scenarios." };
+  }
+
+  // Rate limit the Gemini call — a compromised admin session can't spin the bill.
+  const limit = await rateLimit(`suggest:${user.id}`, {
+    max: 12,
+    windowSeconds: 60,
+  });
+  if (!limit.ok) {
+    return {
+      error: `Too many suggestions in a row — wait ${limit.retryAfterSeconds}s and try again.`,
+    };
   }
 
   const suggestion = await suggestScenarioDepth({ title, situation });

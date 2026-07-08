@@ -20,6 +20,7 @@
     "@pipecat-ai/small-webrtc-transport": "^1.10.4",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
+    "@sentry/nextjs": "^10.63.0",
     "@supabase/ssr": "^0.12.0",
     "@supabase/supabase-js": "^2.108.1",
     "lucide-react": "^1.18.0",

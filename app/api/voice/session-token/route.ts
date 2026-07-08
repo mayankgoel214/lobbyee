@@ -8,6 +8,7 @@ import { z } from "zod";
 import { getUser } from "@/lib/auth/session";
 import { dbForRequest } from "@/lib/db/scoped";
 import { env } from "@/lib/env";
+import { rateLimit } from "@/lib/rate-limit";
 import { loadVoiceSnapshot } from "@/lib/voice/snapshot";
 import { signVoiceToken } from "@/lib/voice/token";
 
@@ -33,6 +34,20 @@ export async function POST(request: Request) {
 
   const user = await getUser();
   if (!user) return new NextResponse(null, { status: 401 });
+
+  const limit = await rateLimit(`voice-token:${user.id}`, {
+    max: 15,
+    windowSeconds: 60,
+  });
+  if (!limit.ok) {
+    return NextResponse.json(
+      { error: "Too many requests." },
+      {
+        status: 429,
+        headers: { "Retry-After": String(limit.retryAfterSeconds) },
+      },
+    );
+  }
 
   let body: z.infer<typeof bodySchema>;
   try {

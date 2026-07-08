@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { afterAuthDestination } from "@/lib/auth/session";
+import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { siteUrl } from "@/lib/site-url";
 import { supabaseServer } from "@/lib/supabase/server";
 
@@ -32,6 +33,20 @@ export async function signUpAction(
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
   const { email, password, fullName } = parsed.data;
+
+  // Rate limit sign-ups per IP — the main lever against a burst of throwaway
+  // trial workspaces grinding the Gemini bill (each free workspace can run
+  // sessions). Generous enough for a shared office NAT, tight enough to matter.
+  const ip = await clientIp();
+  const limit = await rateLimit(`signup:${ip}`, {
+    max: 10,
+    windowSeconds: 3600,
+  });
+  if (!limit.ok) {
+    return {
+      error: "Too many sign-up attempts from this network — try again later.",
+    };
+  }
 
   const supabase = await supabaseServer();
   const { data, error } = await supabase.auth.signUp({

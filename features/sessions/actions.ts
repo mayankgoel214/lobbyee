@@ -11,6 +11,7 @@ import { claimSessionSlot, releaseSessionSlot } from "@/lib/billing/cap";
 import { dbAdmin } from "@/lib/db/admin";
 import { dbForRequest } from "@/lib/db/scoped";
 import { drainSession, enqueueEvaluation } from "@/lib/eval/service";
+import { rateLimit } from "@/lib/rate-limit";
 import { runTurn, textAI, textPersistence } from "@/lib/turn-engine";
 import { GUEST_SYSTEM_VERSION } from "@/prompts/guest-system";
 
@@ -273,6 +274,20 @@ export async function sendTurnAction(input: {
   }
   const { sessionId, text } = parsed.data;
   const user = await requireUser();
+
+  // Rate limit before any model spend — bounds a runaway client / abusive
+  // script even within the per-session and per-day caps.
+  const limit = await rateLimit(`turn:${user.id}`, {
+    max: 20,
+    windowSeconds: 60,
+  });
+  if (!limit.ok) {
+    return {
+      ok: false,
+      error: `You're sending replies very fast — wait ${limit.retryAfterSeconds}s and try again.`,
+    };
+  }
+
   const db = dbForRequest(user.id);
 
   // Scoped read — RLS returns the session only if it's the user's own (or

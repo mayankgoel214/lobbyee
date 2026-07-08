@@ -17,6 +17,7 @@
 // visibility of pending_evaluation; every read here is keyed by sessionId
 // from our own queue, never by client-supplied identifiers.
 import "server-only";
+import * as Sentry from "@sentry/nextjs";
 import { z } from "zod";
 import { evaluateSession, type TranscriptMessage } from "@/lib/ai/evaluator";
 import { dbAdmin } from "@/lib/db/admin";
@@ -91,9 +92,13 @@ async function recordFailure(sessionId: string, error: unknown): Promise<void> {
     RETURNING "attempts"`;
   const attempts = rows[0]?.attempts ?? 0;
   if (attempts >= MAX_ATTEMPTS) {
-    // Sentry lands in Phase 4 — until then this line IS the dead-letter alert.
     console.error(
       `EVAL DEAD-LETTER: session ${sessionId} failed ${attempts} times — last error: ${message}`,
+    );
+    // Alert (no-op until SENTRY_DSN set). No transcript/PII — ids + message only.
+    Sentry.captureMessage(
+      `EVAL DEAD-LETTER: session ${sessionId} failed ${attempts}x — ${message}`,
+      "error",
     );
   }
 }

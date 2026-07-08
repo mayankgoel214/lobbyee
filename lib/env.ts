@@ -43,6 +43,10 @@ const schema = z.object({
   // session-token route 503s until it's set, so voice is off by default.
   VOICE_SESSION_TOKEN_SECRET: z.string().min(32).optional(),
 
+  // Error monitoring (Sentry). Optional — server error capture stays a no-op
+  // until the DSN is set, so the app runs identically without it.
+  SENTRY_DSN: z.string().url().optional(),
+
   NODE_ENV: z
     .enum(["development", "test", "production"])
     .default("development"),

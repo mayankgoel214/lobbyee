@@ -2,6 +2,7 @@
 // Order matters: verify the signature on the RAW body, then claim the event
 // id in the idempotency ledger, then apply. A duplicate delivery loses the
 // ledger insert and returns 200 without re-applying.
+import * as Sentry from "@sentry/nextjs";
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { handleStripeEvent } from "@/lib/billing/webhook-handlers";
@@ -56,6 +57,10 @@ export async function POST(request: Request) {
       `stripe webhook: handler failed for ${event.type} (${event.id}):`,
       e instanceof Error ? e.message : String(e),
     );
+    // Alert (no-op until SENTRY_DSN set). Tags only — no event payload/PII.
+    Sentry.captureException(e, {
+      tags: { area: "stripe-webhook", eventType: event.type },
+    });
     return new NextResponse(null, { status: 500 });
   }
 

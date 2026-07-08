@@ -6,6 +6,7 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { env } from "@/lib/env";
 import { drainBatch } from "@/lib/eval/service";
+import { cleanupRateLimit } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -32,5 +33,7 @@ export async function GET(request: Request) {
     return new NextResponse(null, { status: 401 });
   }
   const result = await drainBatch(3);
+  // Piggyback the daily sweep of expired rate-limit buckets.
+  await cleanupRateLimit();
   return NextResponse.json(result);
 }

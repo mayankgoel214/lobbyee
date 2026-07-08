@@ -41,7 +41,9 @@ export async function suggestScenarioDepth(input: {
         },
       ],
       config: {
-        maxOutputTokens: 512,
+        // Two ~600-char fields + JSON scaffolding can brush past 512 and
+        // truncate mid-JSON; 1024 is cheap headroom on flash-lite.
+        maxOutputTokens: 1024,
         temperature: 0.7,
         responseMimeType: "application/json",
         responseSchema: {

@@ -37,12 +37,18 @@ export default function NewScenarioPage({
     suggestInitial,
   );
 
+  // Title + situation are controlled only so we can gate the "Suggest" button
+  // (which spends a Gemini call) until both are filled.
+  const [title, setTitle] = useState("");
+  const [situation, setSituation] = useState("");
   // Controlled so the AI suggestion can pre-fill them; the manager still edits
   // or clears anything before saving.
   const [underlyingNeed, setUnderlyingNeed] = useState("");
   const [resolutionPath, setResolutionPath] = useState("");
   const [resolvability, setResolvability] =
     useState<Resolvability>("resolvable");
+
+  const canSuggest = title.trim().length >= 3 && situation.trim().length >= 20;
 
   useEffect(() => {
     if (suggestState.suggestion) {
@@ -69,6 +75,8 @@ export default function NewScenarioPage({
             <Input
               id="title"
               name="title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
               placeholder="Disputed minibar charge"
               required
             />
@@ -82,6 +90,8 @@ export default function NewScenarioPage({
               name="situation"
               rows={4}
               maxLength={1000}
+              value={situation}
+              onChange={(e) => setSituation(e.target.value)}
               placeholder="The guest has just checked out. There's a $40 minibar charge on their folio they insist they didn't make…"
               className={textareaClass}
               required
@@ -127,7 +137,10 @@ export default function NewScenarioPage({
                 variant="secondary"
                 formAction={suggestAction}
                 formNoValidate
-                disabled={suggesting}
+                disabled={suggesting || !canSuggest}
+                title={
+                  canSuggest ? undefined : "Add a title and situation first"
+                }
                 className="!py-1.5 !text-xs"
               >
                 <Sparkles className="mr-1 inline size-3.5" aria-hidden />
@@ -202,7 +215,7 @@ export default function NewScenarioPage({
           </div>
 
           <FormError>{state.error}</FormError>
-          <Button type="submit" disabled={pending}>
+          <Button type="submit" disabled={pending || suggesting}>
             {pending ? "Saving…" : "Save scenario"}
           </Button>
         </form>

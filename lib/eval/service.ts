@@ -157,14 +157,21 @@ async function processSession(sessionId: string): Promise<void> {
   }
 
   const criteria = criteriaSchema.safeParse(session.scenario.successCriteria);
+  // Scenario "depth" grading applies to TEXT sessions only. Voice sessions run
+  // the guest LLM in the worker without the hidden need (see lib/voice/*), so
+  // the transcript never reflects depth — grading it against the underlying
+  // need would unfairly penalize the trainee for missing something the guest
+  // never enacted. Deferred until voice depth ships. (session.modality is text
+  // by default.)
+  const depthApplies = session.modality === "text";
   const evaluated = await evaluateSession({
     scenario: {
       title: session.scenario.title,
       situation: session.scenario.situation,
       successCriteria: criteria.success ? criteria.data : [],
-      underlyingNeed: session.scenario.underlyingNeed,
-      resolutionPath: session.scenario.resolutionPath,
-      resolvability: session.scenario.resolvability,
+      underlyingNeed: depthApplies ? session.scenario.underlyingNeed : null,
+      resolutionPath: depthApplies ? session.scenario.resolutionPath : null,
+      resolvability: depthApplies ? session.scenario.resolvability : null,
     },
     persona: {
       name: session.persona.name,

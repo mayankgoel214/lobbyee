@@ -1,9 +1,11 @@
 // Scenario "depth" — the resolvability guards (lib/scenario/depth) and the
 // evaluator's hidden-need injection (prompts/evaluator). Pure, no network/DB.
 import { describe, expect, it } from "vitest";
+import { Resolvability as PrismaResolvability } from "@/lib/generated/prisma/enums";
 import {
   asResolvability,
   isResolvability,
+  RESOLVABILITY,
   RESOLVABILITY_LABELS,
 } from "@/lib/scenario/depth";
 import {
@@ -36,6 +38,15 @@ describe("resolvability guards", () => {
     expect(RESOLVABILITY_LABELS.resolvable).toBeTruthy();
     expect(RESOLVABILITY_LABELS.partial).toBeTruthy();
     expect(RESOLVABILITY_LABELS.unwinnable).toBeTruthy();
+  });
+
+  it("stays in lockstep with the Prisma enum (drift guard)", () => {
+    // depth.ts declares itself the source of truth for the DB enum. If someone
+    // edits schema.prisma OR the TS union alone, this fails before a runtime
+    // mismatch can ship.
+    expect([...RESOLVABILITY].sort()).toEqual(
+      Object.values(PrismaResolvability).sort(),
+    );
   });
 });
 

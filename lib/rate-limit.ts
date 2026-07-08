@@ -59,14 +59,17 @@ export async function cleanupRateLimit(): Promise<void> {
 }
 
 /** Best-effort client IP for unauthenticated (pre-session) rate limits.
- *  Vercel sets x-forwarded-for; falls back to a constant so the limiter still
- *  bounds total unauthenticated volume even if the header is missing. */
+ *  Prefers `x-real-ip` FIRST: on Vercel the edge sets it to the true client IP
+ *  and it is NOT client-controllable, whereas the leftmost value of a
+ *  client-supplied `x-forwarded-for` IS spoofable — so keying the signup limit
+ *  on XFF-first would let an attacker rotate the header to dodge the cap.
+ *  (This trust model assumes Vercel-style hosting; revisit behind a different
+ *  proxy.) Falls back to a constant so the limiter still bounds total
+ *  unauthenticated volume if no header is present. */
 export async function clientIp(): Promise<string> {
   const h = await headers();
-  const fwd = h.get("x-forwarded-for");
-  if (fwd) {
-    const first = fwd.split(",")[0]?.trim();
-    if (first) return first;
-  }
-  return h.get("x-real-ip")?.trim() || "unknown";
+  const real = h.get("x-real-ip")?.trim();
+  if (real) return real;
+  const first = h.get("x-forwarded-for")?.split(",")[0]?.trim();
+  return first || "unknown";
 }

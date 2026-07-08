@@ -95,9 +95,11 @@ async function recordFailure(sessionId: string, error: unknown): Promise<void> {
     console.error(
       `EVAL DEAD-LETTER: session ${sessionId} failed ${attempts} times — last error: ${message}`,
     );
-    // Alert (no-op until SENTRY_DSN set). No transcript/PII — ids + message only.
+    // Alert (no-op until SENTRY_DSN set). Session id + attempt count are the
+    // actionable fields; cap the error tail so a provider error that echoed a
+    // prompt fragment can't ride along (beforeSend also truncates).
     Sentry.captureMessage(
-      `EVAL DEAD-LETTER: session ${sessionId} failed ${attempts}x — ${message}`,
+      `EVAL DEAD-LETTER: session ${sessionId} failed ${attempts}x — ${message.slice(0, 150)}`,
       "error",
     );
   }

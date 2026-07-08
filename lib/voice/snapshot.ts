@@ -54,6 +54,15 @@ export async function loadVoiceSnapshot(
     scenario: {
       title: session.scenario.title,
       situation: session.scenario.situation,
+      // NOTE: scenario "depth" (underlyingNeed / resolutionPath / resolvability)
+      // is deliberately NOT included here. The voice worker runs the guest LLM
+      // itself, so anything in this snapshot ends up in the rendered guest
+      // prompt returned by /api/voice/worker/snapshot — and the token that
+      // endpoint accepts is minted by the trainee's own browser. Shipping the
+      // hidden need through it would let a trainee read the answer they're meant
+      // to discover. Voice depth is deferred until the worker authenticates with
+      // a worker-only credential the browser never holds. Text mode is unaffected
+      // (its guest LLM call runs server-side and never reaches the browser).
     },
     successCriteria: asCriteria(session.scenario.successCriteria),
     currentMood: isMoodVector(session.currentMood)

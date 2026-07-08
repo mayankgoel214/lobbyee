@@ -1,13 +1,26 @@
 "use client";
 
-import { use, useActionState } from "react";
+import { Sparkles } from "lucide-react";
+import { use, useActionState, useEffect, useState } from "react";
 import { Button, Card, FormError, Input, Label } from "@/components/ui";
 import {
   createScenarioAction,
   type ScenarioFormState,
+  type SuggestDepthState,
+  suggestScenarioDepthAction,
 } from "@/features/scenarios/actions";
+import {
+  RESOLVABILITY,
+  RESOLVABILITY_HELP,
+  RESOLVABILITY_LABELS,
+  type Resolvability,
+} from "@/lib/scenario/depth";
 
 const initial: ScenarioFormState = {};
+const suggestInitial: SuggestDepthState = {};
+
+const textareaClass =
+  "w-full rounded-lg border border-neutral-300 bg-white px-3.5 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none transition-colors focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20";
 
 export default function NewScenarioPage({
   params,
@@ -19,6 +32,31 @@ export default function NewScenarioPage({
     createScenarioAction,
     initial,
   );
+  const [suggestState, suggestAction, suggesting] = useActionState(
+    suggestScenarioDepthAction,
+    suggestInitial,
+  );
+
+  // Title + situation are controlled only so we can gate the "Suggest" button
+  // (which spends a Gemini call) until both are filled.
+  const [title, setTitle] = useState("");
+  const [situation, setSituation] = useState("");
+  // Controlled so the AI suggestion can pre-fill them; the manager still edits
+  // or clears anything before saving.
+  const [underlyingNeed, setUnderlyingNeed] = useState("");
+  const [resolutionPath, setResolutionPath] = useState("");
+  const [resolvability, setResolvability] =
+    useState<Resolvability>("resolvable");
+
+  const canSuggest = title.trim().length >= 3 && situation.trim().length >= 20;
+
+  useEffect(() => {
+    if (suggestState.suggestion) {
+      setUnderlyingNeed(suggestState.suggestion.underlyingNeed);
+      setResolutionPath(suggestState.suggestion.resolutionPath);
+      setResolvability(suggestState.suggestion.resolvability);
+    }
+  }, [suggestState.suggestion]);
 
   return (
     <main className="mx-auto max-w-xl p-6">
@@ -37,6 +75,8 @@ export default function NewScenarioPage({
             <Input
               id="title"
               name="title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
               placeholder="Disputed minibar charge"
               required
             />
@@ -50,8 +90,10 @@ export default function NewScenarioPage({
               name="situation"
               rows={4}
               maxLength={1000}
+              value={situation}
+              onChange={(e) => setSituation(e.target.value)}
               placeholder="The guest has just checked out. There's a $40 minibar charge on their folio they insist they didn't make…"
-              className="w-full rounded-lg border border-neutral-300 bg-white px-3.5 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none transition-colors focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20"
+              className={textareaClass}
               required
             />
           </div>
@@ -78,12 +120,102 @@ export default function NewScenarioPage({
               placeholder={
                 "Acknowledge the frustration before explaining anything\nWalk through the charges line by line, together"
               }
-              className="w-full rounded-lg border border-neutral-300 bg-white px-3.5 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none transition-colors focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20"
+              className={textareaClass}
               required
             />
           </div>
+
+          {/* Hidden depth — what makes a guest realistically hard to satisfy. */}
+          <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-4">
+            <div className="mb-1 flex items-center justify-between gap-3">
+              <span className="text-sm font-medium text-neutral-900">
+                Hidden depth{" "}
+                <span className="font-normal text-neutral-500">(optional)</span>
+              </span>
+              <Button
+                type="submit"
+                variant="secondary"
+                formAction={suggestAction}
+                formNoValidate
+                disabled={suggesting || !canSuggest}
+                title={
+                  canSuggest ? undefined : "Add a title and situation first"
+                }
+                className="!py-1.5 !text-xs"
+              >
+                <Sparkles className="mr-1 inline size-3.5" aria-hidden />
+                {suggesting ? "Drafting…" : "Suggest with AI"}
+              </Button>
+            </div>
+            <p className="mb-3 text-xs text-neutral-500">
+              The real issue beneath the surface complaint. The guest won't
+              volunteer it — staff have to uncover it to fully satisfy them.
+              Fill a title and situation, then let AI draft a starting point.
+            </p>
+
+            <div className="mb-3">
+              <Label htmlFor="underlyingNeed">
+                What's really going on for the guest
+              </Label>
+              <textarea
+                id="underlyingNeed"
+                name="underlyingNeed"
+                rows={2}
+                maxLength={600}
+                value={underlyingNeed}
+                onChange={(e) => setUnderlyingNeed(e.target.value)}
+                placeholder="They feel accused of lying and want their honesty respected — the $40 is really about their dignity."
+                className={textareaClass}
+              />
+            </div>
+
+            <div className="mb-3">
+              <Label htmlFor="resolutionPath">
+                What would genuinely resolve it
+              </Label>
+              <textarea
+                id="resolutionPath"
+                name="resolutionPath"
+                rows={2}
+                maxLength={600}
+                value={resolutionPath}
+                onChange={(e) => setResolutionPath(e.target.value)}
+                placeholder="Believe them without making them prove it, remove the charge graciously, and thank them for flagging it."
+                className={textareaClass}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="resolvability">How winnable is it?</Label>
+              <select
+                id="resolvability"
+                name="resolvability"
+                value={resolvability}
+                onChange={(e) =>
+                  setResolvability(e.target.value as Resolvability)
+                }
+                className={textareaClass}
+              >
+                {RESOLVABILITY.map((r) => (
+                  <option key={r} value={r}>
+                    {RESOLVABILITY_LABELS[r]}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-neutral-500">
+                {RESOLVABILITY_HELP[resolvability]}
+              </p>
+            </div>
+
+            {suggestState.error ? (
+              <p className="mt-2 text-xs text-amber-700">
+                {suggestState.error}
+              </p>
+            ) : null}
+          </div>
+
           <FormError>{state.error}</FormError>
-          <Button type="submit" disabled={pending}>
+          <Button type="submit" disabled={pending || suggesting}>
             {pending ? "Saving…" : "Save scenario"}
           </Button>
         </form>

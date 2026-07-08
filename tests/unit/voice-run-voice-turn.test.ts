@@ -72,6 +72,9 @@ describe("runVoiceTurn", () => {
     const res = await runVoiceTurn(db, ids, snapshot, input);
 
     // Mood reacts to the user's words + the prior guest line.
+    // Voice intentionally does NOT pass scenario depth to the mood updater —
+    // voice runs the guest LLM in the worker without the hidden need, so voice
+    // behaves exactly as before (depth is text-only for now).
     expect(updateMood).toHaveBeenCalledWith({
       prevMood: priorMood,
       lastGuestText: "I've been waiting ages.",

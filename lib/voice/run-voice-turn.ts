@@ -51,6 +51,10 @@ export async function runVoiceTurn(
   // aloud — persistence is what must not fail here.
   let mood: MoodVector;
   try {
+    // No scenario depth in voice mood either — the voice guest (run in the
+    // worker) doesn't enact the hidden need yet (see lib/voice/snapshot.ts),
+    // so gating mood on it would be inconsistent with the guest's behavior.
+    // Voice therefore behaves exactly as before. Deferred with voice depth.
     mood = await updateMood({
       prevMood: snapshot.currentMood,
       lastGuestText: lastGuest,

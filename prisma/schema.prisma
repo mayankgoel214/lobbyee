@@ -129,6 +129,14 @@ enum Modality {
   text
 }
 
+// How winnable a scenario is within one session (lib/scenario/depth.ts is the
+// TS source of truth — keep the values identical).
+enum Resolvability {
+  resolvable
+  partial
+  unwinnable
+}
+
 enum TurnRole {
   user
   guest
@@ -169,6 +177,12 @@ model Scenario {
   situation       String
   difficulty      Int
   successCriteria Json      @map("success_criteria")
+  // Scenario "depth" (docs/architecture.md §5) — the hidden layer that makes a
+  // guest realistically hard to satisfy. All optional/defaulted: a scenario
+  // with no depth behaves exactly as before.
+  underlyingNeed  String?        @map("underlying_need")
+  resolutionPath  String?        @map("resolution_path")
+  resolvability   Resolvability  @default(resolvable)
   isLibrary       Boolean   @default(false) @map("is_library")
   createdAt       DateTime  @default(now()) @map("created_at")
   workspace       Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)

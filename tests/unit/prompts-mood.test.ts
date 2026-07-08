@@ -118,6 +118,101 @@ describe("renderMoodUpdatePrompt", () => {
   it("exports a non-empty, stable VERSION string", () => {
     expect(MOOD_UPDATE_VERSION).toMatch(/^mood-update@v/);
   });
+
+  // Scenario depth: the mood updater must gate big emotional gains on the real
+  // need, and cap satisfaction for partial/unwinnable scenarios.
+  it("omits all depth rules for a plain scenario", () => {
+    const out = renderMoodUpdatePrompt(base);
+    expect(out).not.toContain("Scenario-specific rules");
+    expect(out).not.toContain("UNDERLYING NEED");
+    expect(out).not.toContain("UNWINNABLE");
+  });
+
+  it("injects the underlying need and gates satisfaction on it", () => {
+    const out = renderMoodUpdatePrompt({
+      ...base,
+      underlyingNeed: "they feel accused of lying",
+      resolutionPath: "believe them without proof",
+    });
+    expect(out).toContain("Scenario-specific rules");
+    expect(out).toContain("they feel accused of lying");
+    expect(out).toContain("believe them without proof");
+    expect(out).toMatch(/ONLY when the staff member moves toward/i);
+  });
+
+  it("caps satisfaction for an unwinnable scenario", () => {
+    const out = renderMoodUpdatePrompt({
+      ...base,
+      resolvability: "unwinnable",
+    });
+    expect(out).toContain("UNWINNABLE");
+    expect(out).toMatch(/cap it around 40/i);
+  });
+
+  it("caps satisfaction mid-range for a partial scenario", () => {
+    const out = renderMoodUpdatePrompt({ ...base, resolvability: "partial" });
+    expect(out).toContain("PARTIALLY resolvable");
+    expect(out).toMatch(/cap it around 60/i);
+  });
+
+  it("treats resolvable + no need as a plain scenario (no rules block)", () => {
+    const out = renderMoodUpdatePrompt({
+      ...base,
+      resolvability: "resolvable",
+    });
+    expect(out).not.toContain("Scenario-specific rules");
+  });
+});
+
+// --- renderGuestSystem depth ------------------------------------------------
+
+describe("renderGuestSystem — scenario depth", () => {
+  const persona = {
+    name: "Marcus Webb",
+    guestType: "business traveler",
+    backstory: "Frequent guest.",
+  };
+  const plain = {
+    title: "Disputed minibar charge",
+    situation: "A $40 charge they insist they didn't make.",
+  };
+
+  it("adds NO depth direction for a scenario without an underlying need", () => {
+    const out = renderGuestSystem(persona, plain);
+    expect(out).not.toContain("What's REALLY going on");
+    expect(out).not.toContain("You cannot get what you're asking for");
+  });
+
+  it("injects the hidden need as private stage direction, told not to volunteer it", () => {
+    const out = renderGuestSystem(persona, {
+      ...plain,
+      underlyingNeed: "they feel accused of lying and want respect",
+    });
+    expect(out).toContain("What's REALLY going on");
+    expect(out).toContain("they feel accused of lying and want respect");
+    expect(out).toMatch(/never say this outright/i);
+  });
+
+  it("adds the unwinnable direction (never gives them what they want)", () => {
+    const out = renderGuestSystem(persona, {
+      ...plain,
+      resolvability: "unwinnable",
+    });
+    expect(out).toContain("You cannot get what you're asking for");
+    expect(out).toMatch(/Never suddenly get what you wanted/i);
+  });
+
+  it("stays byte-identical across renders with depth (cache stability)", () => {
+    const withDepth = {
+      ...plain,
+      underlyingNeed: "x",
+      resolutionPath: "y",
+      resolvability: "partial" as const,
+    };
+    expect(renderGuestSystem(persona, withDepth)).toBe(
+      renderGuestSystem(persona, withDepth),
+    );
+  });
 });
 
 // --- clampMood -------------------------------------------------------------

@@ -99,6 +99,9 @@ describe("runTurn — happy path", () => {
       prevMood: snap.currentMood,
       lastGuestText: "Opening line.",
       userText: "My reply",
+      underlyingNeed: null,
+      resolutionPath: null,
+      resolvability: null,
     });
     expect(ai.coachHint).toHaveBeenCalledWith({
       mood: MOOD,

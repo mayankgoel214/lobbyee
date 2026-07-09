@@ -24,8 +24,11 @@ export default async function WorkspaceLayout({
 
   return (
     <div className="flex min-h-screen bg-neutral-50">
-      {/* Desktop sidebar — fixed, full-height. */}
-      <aside className="fixed inset-y-0 left-0 hidden w-60 flex-col border-r border-neutral-200 bg-white md:flex">
+      {/* Desktop sidebar — fixed, full-height. z-30 keeps it above the main
+          column: the main column is `relative` (to anchor the ambient glow),
+          which otherwise paints its full-width transparent box over the fixed
+          sidebar and swallows the nav clicks. */}
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-neutral-200 bg-white md:flex">
         <div className="px-5 py-5">
           <Link href={`/w/${slug}`} className="inline-flex">
             <LobbyeeLogo />

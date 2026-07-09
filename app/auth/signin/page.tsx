@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useActionState, useEffect, useState } from "react";
 import { AuthShell } from "@/components/auth-shell";
+import { GoogleButton } from "@/components/google-button";
 import { Button, FormError, FormMessage, Input, Label } from "@/components/ui";
 import {
   type AuthFormState,
@@ -14,18 +15,26 @@ const initial: AuthFormState = {};
 
 export default function SignInPage() {
   const [mode, setMode] = useState<"password" | "magic">("password");
-  const [linkError, setLinkError] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
   const [pwState, pwSubmit, pwPending] = useActionState(signInAction, initial);
   const [mlState, mlSubmit, mlPending] = useActionState(
     magicLinkAction,
     initial,
   );
 
-  // The email-confirm route sends failed/expired links back here with an error
-  // flag. Read it on the client so the user learns why nothing happened.
+  // The confirm/callback routes send failures back here with an error flag.
+  // Read it on the client so the user learns why nothing happened.
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("error") === "link-expired-or-invalid") setLinkError(true);
+    const code = new URLSearchParams(window.location.search).get("error");
+    if (code === "link-expired-or-invalid") {
+      setAuthError(
+        "That link has expired or was already used. Sign in below, or request a new magic link.",
+      );
+    } else if (code === "google") {
+      setAuthError(
+        "Couldn't start Google sign-in. Please try again, or use email.",
+      );
+    }
   }, []);
 
   return (
@@ -38,14 +47,17 @@ export default function SignInPage() {
           Staff usually sign in with a magic link, no password needed.
         </p>
       </div>
-      {linkError ? (
+      {authError ? (
         <div className="mb-4">
-          <FormError>
-            That link has expired or was already used. Sign in below, or request
-            a new magic link.
-          </FormError>
+          <FormError>{authError}</FormError>
         </div>
       ) : null}
+      <GoogleButton />
+      <div className="my-5 flex items-center gap-3">
+        <span className="h-px flex-1 bg-neutral-200" />
+        <span className="text-xs text-neutral-400">or</span>
+        <span className="h-px flex-1 bg-neutral-200" />
+      </div>
       {mode === "password" ? (
         <form action={pwSubmit} className="flex flex-col gap-4">
           <div>

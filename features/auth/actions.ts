@@ -57,17 +57,18 @@ export async function signUpAction(
       emailRedirectTo: `${siteUrl()}/auth/confirm`,
     },
   });
-  // Enumeration-safe: the error branch returns the SAME copy as the
-  // confirmation branch, so the response never reveals whether an account
-  // already exists. Real failures are logged server-side.
+  // Enumeration-safe: the error branch routes to the SAME "check your email"
+  // screen as the confirmation branch, so the response never reveals whether
+  // an account already exists. Real failures are logged server-side.
   if (error) {
     console.error("signUp failed:", error.code);
-    return { message: "Check your email for a confirmation link." };
+    redirect(`/auth/verify-email?email=${encodeURIComponent(email)}`);
   }
 
-  // If email confirmation is enabled there's no session yet.
+  // If email confirmation is enabled there's no session yet — send the user to
+  // a dedicated full-page screen (not an easy-to-miss inline message).
   if (!data.session) {
-    return { message: "Check your email for a confirmation link." };
+    redirect(`/auth/verify-email?email=${encodeURIComponent(email)}`);
   }
   redirect(await afterAuthDestination(data.session.user.id));
 }
@@ -117,11 +118,52 @@ export async function magicLinkAction(
     email: parsed.data.email,
     options: { emailRedirectTo: `${siteUrl()}/auth/confirm` },
   });
-  // Constant response regardless of outcome — prevents email enumeration.
+  // Constant outcome regardless of whether the account exists — prevents email
+  // enumeration — and a full-page screen instead of an inline message.
   if (error) console.error("signInWithOtp failed:", error.code);
-  return {
-    message: "If that email is registered, a magic link is on its way.",
-  };
+  redirect(
+    `/auth/verify-email?email=${encodeURIComponent(parsed.data.email)}&via=magic`,
+  );
+}
+
+// "Continue with Google". Runs server-side: Supabase returns the Google
+// consent URL (and sets the PKCE verifier cookie); we redirect the browser to
+// it. Google sends the user back to /auth/callback with a code.
+export async function signInWithGoogleAction(): Promise<void> {
+  const supabase = await supabaseServer();
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: { redirectTo: `${siteUrl()}/auth/callback` },
+  });
+  if (error || !data.url) {
+    console.error("google oauth init failed:", error?.code);
+    redirect("/auth/signin?error=google");
+  }
+  redirect(data.url);
+}
+
+// Resend a sign-in link from the "check your email" screen. Uses a magic link
+// (signInWithOtp) which both confirms a brand-new signup and signs in an
+// existing user, so one button covers every case. Enumeration-safe + rate
+// limited so it can't be used to flood an inbox.
+export async function resendEmailAction(
+  _prev: AuthFormState,
+  formData: FormData,
+): Promise<AuthFormState> {
+  const parsed = emailSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { error: "Enter a valid email" };
+  const ip = await clientIp();
+  const limit = await rateLimit(`resend:${ip}`, { max: 5, windowSeconds: 900 });
+  if (!limit.ok) {
+    return { error: "Too many requests. Try again in a few minutes." };
+  }
+  const supabase = await supabaseServer();
+  const { error } = await supabase.auth.signInWithOtp({
+    email: parsed.data.email,
+    options: { emailRedirectTo: `${siteUrl()}/auth/confirm` },
+  });
+  if (error) console.error("resend signInWithOtp failed:", error.code);
+  return { message: "Sent. Check your inbox and spam folder again." };
 }
 
 export async function signOutAction(): Promise<void> {

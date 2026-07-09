@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useActionState } from "react";
 import { AuthShell } from "@/components/auth-shell";
+import { GoogleButton } from "@/components/google-button";
 import { Button, FormError, FormMessage, Input, Label } from "@/components/ui";
 import { type AuthFormState, signUpAction } from "@/features/auth/actions";
 
@@ -20,6 +21,12 @@ export default function SignUpPage() {
         <p className="mt-1.5 text-sm text-neutral-500">
           Set up your team&rsquo;s training workspace in the next step.
         </p>
+      </div>
+      <GoogleButton />
+      <div className="my-5 flex items-center gap-3">
+        <span className="h-px flex-1 bg-neutral-200" />
+        <span className="text-xs text-neutral-400">or</span>
+        <span className="h-px flex-1 bg-neutral-200" />
       </div>
       <form action={action} className="flex flex-col gap-4">
         <div>

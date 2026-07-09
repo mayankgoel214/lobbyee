@@ -64,7 +64,18 @@ export default async function WorkspaceLayout({
       </aside>
 
       {/* Main column — offset by the sidebar on desktop. */}
-      <div className="flex min-w-0 flex-1 flex-col md:pl-60">
+      <div className="relative flex min-w-0 flex-1 flex-col overflow-x-clip md:pl-60">
+        {/* Subtle teal ambient wash at the top of the content area, echoing the
+            landing/auth background so the whole product feels of a piece. Kept
+            very faint so it never competes with dense dashboard content. */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[360px]"
+          style={{
+            background:
+              "radial-gradient(70% 100% at 78% 0%, rgba(18,163,148,.10), transparent 68%)",
+          }}
+        />
         {/* Mobile top bar + horizontal nav. */}
         <header className="flex items-center justify-between border-b border-neutral-200 bg-white px-4 py-3 md:hidden">
           <Link href={`/w/${slug}`}>

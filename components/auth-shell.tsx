@@ -68,7 +68,7 @@ export function AuthShell({ children }: { children: ReactNode }) {
         }}
       />
 
-      <div className="relative z-10 w-full max-w-[400px]">
+      <div className="auth-rise relative z-10 w-full max-w-[400px]">
         <div className="mb-7 flex justify-center">
           <Link href="/" className="inline-flex" aria-label="Lobbyee home">
             <LobbyeeLogo />
@@ -78,6 +78,17 @@ export function AuthShell({ children }: { children: ReactNode }) {
           {children}
         </div>
       </div>
+
+      <style>{`
+        @keyframes auth-rise-in {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .auth-rise { animation: auth-rise-in .5s cubic-bezier(.22,.61,.36,1) both; }
+        @media (prefers-reduced-motion: reduce) {
+          .auth-rise { animation: none; }
+        }
+      `}</style>
     </main>
   );
 }

@@ -73,12 +73,12 @@ export default async function BillingSettingsPage({
         )}
         {checkout === "canceled" && (
           <div className="mb-4 rounded-xl border border-neutral-200 bg-neutral-50 p-4 text-sm text-neutral-600">
-            Checkout canceled — no charge was made.
+            Checkout canceled. No charge was made.
           </div>
         )}
         {subscription?.stripeStatus === "past_due" && (
           <div className="mb-4 rounded-xl border border-warn/30 bg-warn/10 p-4 text-sm text-[#a76a12] shadow-sm">
-            Your last payment didn&apos;t go through. Stripe will retry — update
+            Your last payment didn&apos;t go through. Stripe will retry. Update
             your card in &ldquo;Manage billing&rdquo; to keep your plan active.
           </div>
         )}
@@ -92,7 +92,7 @@ export default async function BillingSettingsPage({
               <p className="mt-1 text-sm text-neutral-500">
                 {onPaidPlan
                   ? `$100/month · ${workspace.sessionCapMonthly} sessions per period${renewsOn ? ` · renews ${renewsOn}` : ""}`
-                  : `${TRIAL_SESSION_CAP} practice sessions to try Lobbyee — no card required`}
+                  : `${TRIAL_SESSION_CAP} practice sessions to try Lobbyee, no card required`}
               </p>
             </div>
             <Badge variant={onPaidPlan ? "accent" : "neutral"}>

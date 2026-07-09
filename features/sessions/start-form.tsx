@@ -38,17 +38,17 @@ export function StartSessionForm({
         <input type="hidden" name="slug" value={slug} />
         <input type="hidden" name="modality" value={modality} />
         <div>
-          <Label htmlFor="personaId">Guest — who you'll be facing</Label>
+          <Label htmlFor="personaId">Guest (who you'll be facing)</Label>
           <select id="personaId" name="personaId" className={selectClass}>
             {personas.map((p) => (
               <option key={p.id} value={p.id}>
-                {p.name} — {p.guestType}
+                {p.name}, {p.guestType}
               </option>
             ))}
           </select>
         </div>
         <div>
-          <Label htmlFor="scenarioId">Situation — what's going on</Label>
+          <Label htmlFor="scenarioId">Situation (what's going on)</Label>
           <select id="scenarioId" name="scenarioId" className={selectClass}>
             {scenarios.map((s) => (
               <option key={s.id} value={s.id}>

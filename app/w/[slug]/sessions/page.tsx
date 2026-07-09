@@ -90,7 +90,7 @@ export default async function SessionsPage({
         targetMembership?.profile.fullName ??
         targetMembership?.profile.email ??
         "Staff"
-      } — sessions`
+      }: sessions`
     : "My sessions";
 
   return (

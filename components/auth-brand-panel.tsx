@@ -101,7 +101,7 @@ export function AuthBrandPanel() {
         </div>
 
         <p className="mt-8 text-[15px] leading-relaxed text-white/70">
-          A coaching report after every practice conversation — scored on
+          A coaching report after every practice conversation, scored on
           empathy, clarity, problem-solving, and professionalism, with the exact
           moment that made the difference.
         </p>

@@ -37,14 +37,14 @@ export default async function TrainPage({
         Practice a conversation
       </h1>
       <p className="mb-6 text-sm text-neutral-500">
-        Pick a guest, then a situation — the same situation feels completely
+        Pick a guest, then a situation. The same situation feels completely
         different depending on who you're facing. The guest speaks first; handle
         it like you would at the desk.
       </p>
       {personas.length === 0 ? (
         <Card>
           <p className="text-sm text-neutral-600">
-            This workspace has no guests yet — a manager needs to create one
+            This workspace has no guests yet. A manager needs to create one
             before training can start.
           </p>
         </Card>

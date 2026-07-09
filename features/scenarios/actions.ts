@@ -136,14 +136,14 @@ export async function suggestScenarioDepthAction(
   });
   if (!limit.ok) {
     return {
-      error: `Too many suggestions in a row — wait ${limit.retryAfterSeconds}s and try again.`,
+      error: `Too many suggestions in a row. Wait ${limit.retryAfterSeconds}s and try again.`,
     };
   }
 
   const suggestion = await suggestScenarioDepth({ title, situation });
   if (!suggestion) {
     return {
-      error: "Couldn't draft a suggestion just now — write your own below.",
+      error: "Couldn't draft a suggestion just now. Write your own below.",
     };
   }
   return { suggestion };

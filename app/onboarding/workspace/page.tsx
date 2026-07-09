@@ -26,7 +26,7 @@ export default function CreateWorkspacePage() {
           Create your workspace
         </h1>
         <p className="mt-1.5 text-sm text-neutral-500">
-          One workspace per property or team — you&rsquo;ll invite staff next.
+          One workspace per property or team. You&rsquo;ll invite staff next.
         </p>
       </div>
       <Card>

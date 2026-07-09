@@ -107,6 +107,6 @@ describe("renderEvaluatorUser — scenario depth", () => {
   });
 
   it("bumped the evaluator version", () => {
-    expect(EVALUATOR_VERSION).toBe("evaluator@v2");
+    expect(EVALUATOR_VERSION).toBe("evaluator@v3");
   });
 });

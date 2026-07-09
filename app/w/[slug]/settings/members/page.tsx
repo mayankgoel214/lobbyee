@@ -40,7 +40,7 @@ export default async function MembersSettingsPage({
             </thead>
             <tbody>
               {members.map((m) => {
-                const name = m.profile.fullName ?? m.profile.email ?? "—";
+                const name = m.profile.fullName ?? m.profile.email ?? "No name";
                 const initials = name
                   .split(/[\s@]+/)
                   .map((p) => p[0])
@@ -61,7 +61,7 @@ export default async function MembersSettingsPage({
                           {initials}
                         </span>
                         <span className="font-semibold text-neutral-900">
-                          {m.profile.fullName ?? "—"}
+                          {m.profile.fullName ?? "No name"}
                           {m.userId === user.id && (
                             <span className="ml-2 text-xs font-normal text-neutral-400">
                               you

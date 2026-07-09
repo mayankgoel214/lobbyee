@@ -9,7 +9,7 @@ import type { Metadata } from "next";
 import { DemoTour } from "@/features/marketing/demo-tour";
 
 const description =
-  "A 60-second walkthrough of Lobbyee — pick a guest and a situation, practice the hard conversation, get a coaching report scored on empathy, clarity, problem-solving and professionalism.";
+  "A 60-second walkthrough of Lobbyee: pick a guest and a situation, practice the hard conversation, get a coaching report scored on empathy, clarity, problem-solving, and professionalism.";
 
 export const metadata: Metadata = {
   title: "See Lobbyee in action",

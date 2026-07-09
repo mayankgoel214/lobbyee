@@ -84,7 +84,7 @@ export function MoodTimeline({ snapshots }: { snapshots: MoodVector[] }) {
         />
       </svg>
       <p className="mt-1 text-[11px] text-neutral-400">
-        start of session → end · 0–100 scale
+        start of session → end · 0 to 100 scale
       </p>
     </section>
   );

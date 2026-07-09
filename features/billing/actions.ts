@@ -56,7 +56,7 @@ export async function startCheckoutAction(
   }
   const priceId = env.STRIPE_PRICE_ID;
   if (!billingConfigured() || !priceId) {
-    return { error: "Billing isn't configured yet — check back soon." };
+    return { error: "Billing isn't configured yet. Check back soon." };
   }
 
   const customerId = await ensureStripeCustomer(workspace);
@@ -74,9 +74,9 @@ export async function startCheckoutAction(
     checkoutUrl = session.url;
   } catch (e) {
     console.error("stripe checkout create failed:", e);
-    return { error: "Couldn't start checkout — try again in a moment." };
+    return { error: "Couldn't start checkout. Try again in a moment." };
   }
-  if (!checkoutUrl) return { error: "Couldn't start checkout — try again." };
+  if (!checkoutUrl) return { error: "Couldn't start checkout. Try again." };
   redirect(checkoutUrl);
 }
 
@@ -90,7 +90,7 @@ export async function openPortalAction(
     return { error: "Only workspace admins can manage billing." };
   }
   if (!workspace.stripeCustomerId) {
-    return { error: "No billing account yet — subscribe first." };
+    return { error: "No billing account yet. Subscribe first." };
   }
   let portalUrl: string;
   try {
@@ -101,7 +101,7 @@ export async function openPortalAction(
     portalUrl = session.url;
   } catch (e) {
     console.error("stripe portal create failed:", e);
-    return { error: "Couldn't open the billing portal — try again." };
+    return { error: "Couldn't open the billing portal. Try again." };
   }
   redirect(portalUrl);
 }

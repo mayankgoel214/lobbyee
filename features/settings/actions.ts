@@ -49,7 +49,7 @@ export async function updateProfileAction(
     });
   } catch (e) {
     console.error("updateProfile failed:", e);
-    return { error: "Couldn't save your name — try again." };
+    return { error: "Couldn't save your name. Try again." };
   }
   revalidatePath("/", "layout");
   return { message: "Name updated." };
@@ -90,7 +90,7 @@ export async function changePasswordAction(
   // Guard the impossible-path (OAuth/phone-only accounts have no email to
   // re-verify against) BEFORE spending a rate-limit slot.
   if (!user.email) {
-    return { error: "Couldn't update your password — try again." };
+    return { error: "Couldn't update your password. Try again." };
   }
 
   // Rate limit the current-password check so a stolen session cookie can't be
@@ -101,7 +101,7 @@ export async function changePasswordAction(
   });
   if (!limit.ok) {
     return {
-      error: `Too many attempts — wait ${limit.retryAfterSeconds}s and try again.`,
+      error: `Too many attempts. Wait ${limit.retryAfterSeconds}s and try again.`,
     };
   }
 
@@ -126,7 +126,7 @@ export async function changePasswordAction(
     // Log the code server-side; return generic copy to the client to avoid
     // leaking whether the password matched policy, rate-limit state, etc.
     console.error("changePassword failed:", error.code);
-    return { error: "Couldn't update your password — try again." };
+    return { error: "Couldn't update your password. Try again." };
   }
   return { message: "Password updated." };
 }
@@ -169,7 +169,7 @@ export async function updateWorkspaceAction(
     });
   } catch (e) {
     console.error("updateWorkspace failed:", e);
-    return { error: "Couldn't save workspace — try again." };
+    return { error: "Couldn't save workspace. Try again." };
   }
   revalidatePath("/", "layout");
   return { message: "Workspace updated." };
@@ -254,7 +254,7 @@ export async function deleteWorkspaceAction(
     await dbAdmin.workspace.delete({ where: { id: workspace.id } });
   } catch (e) {
     console.error("deleteWorkspace failed:", e);
-    return { error: "Couldn't delete the workspace — try again." };
+    return { error: "Couldn't delete the workspace. Try again." };
   }
   redirect("/");
 }

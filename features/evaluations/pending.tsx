@@ -56,12 +56,12 @@ export function PendingFeedback() {
       {waitedTooLong ? (
         <>
           Your coaching feedback is taking longer than usual. It will retry on
-          its own — check back in a little while.
+          its own. Check back in a little while.
         </>
       ) : (
         <span className="inline-flex items-center gap-2">
           <span className="h-2 w-2 animate-pulse rounded-full bg-accent-600" />
-          Your coach is reviewing the conversation — feedback usually lands in
+          Your coach is reviewing the conversation. Feedback usually lands in
           under a minute.
         </span>
       )}

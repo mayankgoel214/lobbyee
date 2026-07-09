@@ -38,7 +38,7 @@ export default async function AccountSettingsPage({
               Email
             </p>
             <p className="mt-1 text-sm text-neutral-800">
-              {profile?.email ?? user.email ?? "—"}
+              {profile?.email ?? user.email ?? "Not set"}
             </p>
             <p className="mt-1 text-xs text-neutral-500">
               Your sign-in email. Contact support to change this.

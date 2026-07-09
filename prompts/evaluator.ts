@@ -9,7 +9,7 @@
 // rewrite against human ratings before it ships.
 import { asResolvability, type Resolvability } from "@/lib/scenario/depth";
 
-export const EVALUATOR_VERSION = "evaluator@v2";
+export const EVALUATOR_VERSION = "evaluator@v3";
 
 export const COMPETENCIES = [
   "empathy",
@@ -37,56 +37,56 @@ export type EvalPersonaContext = {
 const RUBRICS: Record<CompetencyKey, { label: string; rubric: string }> = {
   empathy: {
     label: "Empathy",
-    rubric: `EMPATHY — does the staff member recognize and respond to the guest's emotional state?
+    rubric: `EMPATHY: does the staff member recognize and respond to the guest's emotional state?
 
-Score anchors (1-5):
-1 — Dismissive or blaming. Contradicts the guest's feelings, argues, or ignores visible distress entirely.
-2 — Emotionally absent. Jumps straight to process or policy; no acknowledgment of how the guest feels.
-3 — Generic acknowledgment. Says "I understand" or "sorry about that" but it is scripted — not tied to THIS guest's specific situation.
-4 — Genuine validation. Names or reflects the guest's specific frustration, adjusts tone to match the moment, apologizes sincerely where warranted.
-5 — Consistently attuned. Validates before problem-solving on every emotional beat, the language is specific to this guest's situation, and the guest's tone measurably softens in response.`,
+Score anchors (1 to 5):
+1. Dismissive or blaming. Contradicts the guest's feelings, argues, or ignores visible distress entirely.
+2. Emotionally absent. Jumps straight to process or policy; no acknowledgment of how the guest feels.
+3. Generic acknowledgment. Says "I understand" or "sorry about that" but it is scripted, not tied to THIS guest's specific situation.
+4. Genuine validation. Names or reflects the guest's specific frustration, adjusts tone to match the moment, apologizes sincerely where warranted.
+5. Consistently attuned. Validates before problem-solving on every emotional beat, the language is specific to this guest's situation, and the guest's tone measurably softens in response.`,
   },
   clarity: {
     label: "Clarity",
-    rubric: `CLARITY — does the staff member communicate so the guest always knows what is happening and what comes next?
+    rubric: `CLARITY: does the staff member communicate so the guest always knows what is happening and what comes next?
 
-Score anchors (1-5):
-1 — Confusing or contradictory. The guest has to ask the same thing twice, or gets conflicting information.
-2 — Vague. Hedges ("we'll see", "shortly", "someone will look into it") with no concrete facts, owners, or timeframes.
-3 — Mostly clear but incomplete. Individual replies make sense, but the guest is left without a clear picture of next steps at least once.
-4 — Clear and structured. Plain language, no internal jargon, expectations set with specifics (what, who, when).
-5 — Proactively clear. Anticipates the guest's next question, summarizes agreements, confirms understanding, and gives concrete commitments ("by 11:45", "I will call you myself").`,
+Score anchors (1 to 5):
+1. Confusing or contradictory. The guest has to ask the same thing twice, or gets conflicting information.
+2. Vague. Hedges ("we'll see", "shortly", "someone will look into it") with no concrete facts, owners, or timeframes.
+3. Mostly clear but incomplete. Individual replies make sense, but the guest is left without a clear picture of next steps at least once.
+4. Clear and structured. Plain language, no internal jargon, expectations set with specifics (what, who, when).
+5. Proactively clear. Anticipates the guest's next question, summarizes agreements, confirms understanding, and gives concrete commitments ("by 11:45", "I will call you myself").`,
   },
   problem_solving: {
     label: "Problem-solving",
-    rubric: `PROBLEM-SOLVING — does the staff member actually move the guest's problem toward a resolution, including uncovering the REAL issue beneath the surface complaint?
+    rubric: `PROBLEM-SOLVING: does the staff member actually move the guest's problem toward a resolution, including uncovering the REAL issue beneath the surface complaint?
 
-Score anchors (1-5):
-1 — No ownership. Deflects, blames policy or another department, leaves the guest with nothing.
-2 — Passive. Acknowledges the problem but waits for the guest to propose everything; offers help only when cornered.
-3 — Single-track. Treats only the surface complaint; offers one fix and, if it's declined, has no fallback and the conversation stalls.
-4 — Resourceful. Diagnoses before prescribing — asks what's really going on — offers a concrete, relevant resolution, and adapts when the first option doesn't land.
-5 — Owns it end-to-end. Uncovers the guest's underlying need (not just the stated complaint), pairs every constraint with an alternative, offers options matched to what THIS guest actually needs, and closes with a specific committed action.
+Score anchors (1 to 5):
+1. No ownership. Deflects, blames policy or another department, leaves the guest with nothing.
+2. Passive. Acknowledges the problem but waits for the guest to propose everything; offers help only when cornered.
+3. Single-track. Treats only the surface complaint; offers one fix and, if it's declined, has no fallback and the conversation stalls.
+4. Resourceful. Diagnoses before prescribing (asks what's really going on), offers a concrete, relevant resolution, and adapts when the first option doesn't land.
+5. Owns it end-to-end. Uncovers the guest's underlying need (not just the stated complaint), pairs every constraint with an alternative, offers options matched to what THIS guest actually needs, and closes with a specific committed action.
 
-Weigh the scenario's success criteria (provided below) heavily — they describe what a strong resolution looks like for this exact situation. If an "underlying need" is provided below, treat DISCOVERING and ADDRESSING it as the difference between a competent handling (3-4) and an excellent one (5); a staff member who only ever treated the surface symptom cannot score above 3 here, however smoothly they did it.`,
+Weigh the scenario's success criteria (provided below) heavily. They describe what a strong resolution looks like for this exact situation. If an "underlying need" is provided below, treat DISCOVERING and ADDRESSING it as the difference between a competent handling (3 to 4) and an excellent one (5). A staff member who only ever treated the surface symptom cannot score above 3 here, however smoothly they did it.`,
   },
   professionalism: {
     label: "Professionalism",
-    rubric: `PROFESSIONALISM — does the staff member stay composed, courteous, and appropriate under pressure?
+    rubric: `PROFESSIONALISM: does the staff member stay composed, courteous, and appropriate under pressure?
 
-Score anchors (1-5):
-1 — Unprofessional. Rude, sarcastic, argumentative, or shares inappropriate internal details ("we're short-staffed because…").
-2 — Composure slips. Gets defensive when challenged, mirrors the guest's hostility, or makes promises the role can't keep.
-3 — Adequate but flat. Polite and controlled, but robotic under pressure; reads policy at the guest rather than representing it.
-4 — Composed and courteous throughout. Absorbs frustration without taking it personally; delivers constraints respectfully.
-5 — Graceful under fire. Stays warm while holding necessary boundaries, never blames colleagues or the guest, and leaves the guest feeling respected even when the answer is no.`,
+Score anchors (1 to 5):
+1. Unprofessional. Rude, sarcastic, argumentative, or shares inappropriate internal details ("we're short-staffed because…").
+2. Composure slips. Gets defensive when challenged, mirrors the guest's hostility, or makes promises the role can't keep.
+3. Adequate but flat. Polite and controlled, but robotic under pressure; reads policy at the guest rather than representing it.
+4. Composed and courteous throughout. Absorbs frustration without taking it personally; delivers constraints respectfully.
+5. Graceful under fire. Stays warm while holding necessary boundaries, never blames colleagues or the guest, and leaves the guest feeling respected even when the answer is no.`,
   },
 };
 
-export const GROUNDING_RULE = `EVIDENCE GROUNDING — non-negotiable:
+export const GROUNDING_RULE = `EVIDENCE GROUNDING, non-negotiable:
 - Every evidence item MUST quote a real message from the transcript, copied character-for-character (a contiguous substring of exactly one message).
 - Cite the message id (the number in [#id]) the quote appears in. The id tag itself is never part of the quote.
-- If you cannot support a claim with a verbatim quote, leave evidence out. An empty evidence list is acceptable; a fabricated or paraphrased quote is not — it will be rejected by a server-side validator.
+- If you cannot support a claim with a verbatim quote, leave evidence out. An empty evidence list is acceptable; a fabricated or paraphrased quote is not, and will be rejected by a server-side validator.
 - Prefer quoting the STAFF member's own words. Quote the guest only when the evidence is something the staff member failed to respond to.`;
 
 export function renderTranscript(
@@ -113,9 +113,10 @@ Scoring discipline:
 - Score the STAFF member only. The guest is a simulation and is not being evaluated.
 - Judge what was actually said, not intent you imagine behind it.
 - 3 is a solid baseline performance; reserve 5 for genuinely excellent work and 1 for actively harmful handling.
-- The summary speaks directly to the staff member ("you") in a warm, specific coaching voice: what they did well, and the single most useful thing to do differently next time. 2-4 sentences.
+- Write in natural, plain spoken English. Do not use em dashes; use commas or periods. Sound like a real person, not marketing copy.
+- The summary speaks directly to the staff member ("you") in a warm, specific coaching voice: what they did well, and the single most useful thing to do differently next time. 2 to 4 sentences.
 
-Return JSON matching the response schema: score (integer 1-5), summary, evidence (0-6 items, each with kind "strength" or "missed_opportunity", messageId, quote, rationale).`;
+Return JSON matching the response schema: score (integer 1 to 5), summary, evidence (0 to 6 items, each with kind "strength" or "missed_opportunity", messageId, quote, rationale).`;
 }
 
 /** The hidden layer, surfaced to the grader (never to the trainee's browser):
@@ -140,11 +141,11 @@ function renderScenarioDepth(scenario: EvalScenarioContext): string {
   }
   if (resolvability === "partial") {
     lines.push(
-      "This situation was only PARTIALLY resolvable — a real constraint could not fully bend. Do not penalize the staff member for a guest who stays somewhat unhappy; judge whether they did the best that was possible.",
+      "This situation was only PARTIALLY resolvable: a real constraint could not fully bend. Do not penalize the staff member for a guest who stays somewhat unhappy; judge whether they did the best that was possible.",
     );
   } else if (resolvability === "unwinnable") {
     lines.push(
-      "This situation was UNWINNABLE — the guest could not get what they wanted. The measure of success is de-escalation and a respectful, honest 'no', NOT the guest's final happiness. Do not penalize the staff member because the guest remained disappointed.",
+      "This situation was UNWINNABLE: the guest could not get what they wanted. The measure of success is de-escalation and a respectful, honest 'no', NOT the guest's final happiness. Do not penalize the staff member because the guest remained disappointed.",
     );
   }
   return lines.length
@@ -168,7 +169,7 @@ What a strong resolution looks like for this scenario:
 ${criteria}
 ${renderScenarioDepth(input.scenario)}
 # Guest
-${input.persona.name} — ${input.persona.guestType}
+${input.persona.name}: ${input.persona.guestType}
 
 # Transcript
 ${input.transcript}
@@ -183,13 +184,13 @@ export function renderOverallSummaryPrompt(
   results: { competency: CompetencyKey; score: number; summary: string }[],
 ): string {
   const lines = results
-    .map((r) => `${RUBRICS[r.competency].label} — ${r.score}/5: ${r.summary}`)
+    .map((r) => `${RUBRICS[r.competency].label}, ${r.score}/5: ${r.summary}`)
     .join("\n\n");
   return `You are a hospitality trainer writing the headline of a coaching report. Below are four per-competency assessments of one practice session.
 
 ${lines}
 
-Write a 2-3 sentence overall summary addressed directly to the staff member ("you"): lead with their clearest strength, then name the single highest-leverage thing to practice next. Warm, specific, no bullet points, no scores. Return JSON: {"summary": "..."}`;
+Write a 2 to 3 sentence overall summary addressed directly to the staff member ("you"): lead with their clearest strength, then name the single highest-leverage thing to practice next. Write in natural, plain spoken English. Do not use em dashes; use commas or periods. Sound like a real person, not marketing copy. Warm, specific, no bullet points, no scores. Return JSON: {"summary": "..."}`;
 }
 
 export const COMPETENCY_LABELS: Record<CompetencyKey, string> =

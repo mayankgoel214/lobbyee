@@ -36,8 +36,8 @@ export default async function DangerZonePage({
           <p className="mt-1 text-sm text-neutral-600">
             Permanently delete{" "}
             <span className="font-semibold">{workspace.name}</span> and
-            everything in it — personas, scenarios, sessions, transcripts,
-            evaluations, and member access. This cannot be undone.
+            everything in it (personas, scenarios, sessions, transcripts,
+            evaluations, and member access). This cannot be undone.
           </p>
           <div className="mt-4">
             <DeleteWorkspaceForm

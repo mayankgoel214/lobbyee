@@ -188,7 +188,7 @@ export default async function SessionPage({
       {session.status === "completed" && !evaluation && !hasTraineeTurns && (
         <div className="mb-5 rounded-2xl border border-neutral-200 bg-neutral-50 p-4 text-sm text-neutral-600">
           This session ended before you said anything, so there&apos;s nothing
-          to coach — start a new one when you&apos;re ready.
+          to coach. Start a new one when you&apos;re ready.
         </div>
       )}
 

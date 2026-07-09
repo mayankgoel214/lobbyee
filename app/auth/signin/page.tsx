@@ -36,7 +36,7 @@ export default function SignInPage() {
               Sign in to Lobbyee
             </h1>
             <p className="mt-1.5 text-sm text-neutral-500">
-              Staff usually sign in with a magic link — no password needed.
+              Staff usually sign in with a magic link, no password needed.
             </p>
           </div>
           {mode === "password" ? (

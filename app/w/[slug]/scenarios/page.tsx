@@ -77,7 +77,7 @@ export default async function ScenariosPage({
             Situations
           </h1>
           <p className="mt-1 text-sm text-neutral-500">
-            The <em>what</em> — the problem your staff practice handling. Any
+            The <em>what</em>: the problem your staff practice handling. Any
             guest can play any situation, so a handful of guests times these
             situations is a lot of practice.
           </p>
@@ -97,7 +97,7 @@ export default async function ScenariosPage({
       </h2>
       {workspaceScenarios.length === 0 ? (
         <p className="mb-8 text-sm text-neutral-500">
-          Nothing custom yet — start with the library below
+          Nothing custom yet. Start with the library below
           {admin ? " or create your own." : "."}
         </p>
       ) : (

@@ -66,7 +66,7 @@ export async function createWorkspaceAction(
         continue;
       }
       console.error("workspace create failed:", e);
-      return { error: "Could not create the workspace — try again." };
+      return { error: "Could not create the workspace. Try again." };
     }
   }
   redirect(`/w/${slug}`);

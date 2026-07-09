@@ -80,7 +80,7 @@ const INITIAL_STATE: DemoState = {
   reportOverall: "",
   evidenceRevealed: false,
   moodTimelineRevealed: false,
-  caption: "Pick a guest and a situation — any guest can play any situation.",
+  caption: "Pick a guest and a situation. Any guest can play any situation.",
 };
 
 // Terminal state after the whole timeline has finished. Also used as the
@@ -90,7 +90,7 @@ const FINAL_STATE: DemoState = {
   ...INITIAL_STATE,
   scene: 3,
   cursor: { xPct: 50, yPct: 50 },
-  guestSelected: "Diane Whitfield — anxious business traveler",
+  guestSelected: "Diane Whitfield, anxious business traveler",
   situationSelected: "Disputed minibar charge · difficulty 3",
   reportFillPct: { emp: 80, clr: 80, prb: 100, prf: 100 },
   reportOverall: "4.5",
@@ -121,7 +121,7 @@ const TIMELINE: TimelineEvent[] = [
     at: 2200,
     apply: (s) => ({
       ...s,
-      guestSelected: "Diane Whitfield — anxious business traveler",
+      guestSelected: "Diane Whitfield, anxious business traveler",
     }),
   },
   {
@@ -163,13 +163,13 @@ const TIMELINE: TimelineEvent[] = [
       ...s,
       scene: 2,
       caption:
-        "Practice the hard conversation — the guest reacts to how you handle it.",
+        "Practice the hard conversation. The guest reacts to how you handle it.",
       cursor: { xPct: 55, yPct: 55 },
       messages: [
         {
           role: "guest",
           fullText:
-            "There's a $40 minibar charge I never used — I checked out ten minutes ago and I'm about to miss my flight.",
+            "There's a $40 minibar charge I never used. I checked out ten minutes ago and I'm about to miss my flight.",
           startMs: 13000,
           durationMs: 2500,
         },
@@ -185,7 +185,7 @@ const TIMELINE: TimelineEvent[] = [
     apply: (s) => ({
       ...s,
       composerFullText:
-        "I'm sorry about that — let me pull up your folio right now and sort it before you leave.",
+        "I'm sorry about that. Let me pull up your folio right now and sort it before you leave.",
       composerStartMs: 17000,
       composerDurationMs: 5200,
     }),
@@ -236,7 +236,7 @@ const TIMELINE: TimelineEvent[] = [
       moodTrust: 58,
       moodCalm: 46,
       coachHint:
-        "She softened. Now show her the fix, not just the intent — name the action.",
+        "She softened. Now show her the fix, not just the intent. Name the action.",
     }),
   },
   {
@@ -248,7 +248,7 @@ const TIMELINE: TimelineEvent[] = [
     apply: (s) => ({
       ...s,
       composerFullText:
-        "Absolutely — one moment, I've got the folio open and I can see the charge. Removing it now.",
+        "Absolutely. One moment, I've got the folio open and I can see the charge. Removing it now.",
       composerStartMs: 30200,
       composerDurationMs: 4600,
     }),
@@ -284,7 +284,7 @@ const TIMELINE: TimelineEvent[] = [
         ...s.messages,
         {
           role: "guest",
-          fullText: "That's all I needed to hear — thank you.",
+          fullText: "That's all I needed to hear. Thank you.",
           startMs: 37100,
           durationMs: 1800,
         },
@@ -555,12 +555,12 @@ export function DemoTour() {
           <h1>Watch Lobbyee run a training session.</h1>
           <p>
             One synthetic pointer, one hard conversation, one scored report. No
-            sign-up needed to watch — press play any time.
+            sign-up needed to watch. Press play any time.
           </p>
         </div>
 
         {/* Player frame */}
-        <section className="dt-frame" aria-label="Product demo — visual only">
+        <section className="dt-frame" aria-label="Product demo, visual only">
           <div className="dt-titlebar" aria-hidden>
             <div className="dt-dots">
               <span />
@@ -774,8 +774,8 @@ export function DemoTour() {
           <div className="dt-reduced">
             <p>
               Motion is dimmed in your system settings, so we've paused the
-              autoplay. The static screenshot above is the final coaching report
-              — the same report your team gets after every session.
+              autoplay. The static screenshot above is the final coaching
+              report, the same report your team gets after every session.
             </p>
             <button
               type="button"
@@ -801,7 +801,7 @@ export function DemoTour() {
         {/* Below-frame CTA — same-page conversion path */}
         <div className="dt-below">
           <Link href="/auth/signup" className="dt-below-cta">
-            Start free — 10 sessions
+            Start free
           </Link>
           <Link href="/" className="dt-below-ghost">
             Back to the homepage
@@ -881,7 +881,7 @@ function TrainScene({
               <span
                 className={`dt-select-value ${guestSelected ? "" : "dt-placeholder"}`}
               >
-                {guestSelected ?? "Choose a guest to role-play…"}
+                {guestSelected ?? "Choose a guest to practice with…"}
               </span>
               <svg
                 width="12"
@@ -931,7 +931,7 @@ function TrainScene({
           </div>
 
           <p className="dt-help">
-            Any guest can play any situation — that's how you rehearse the
+            Any guest can play any situation. That's how you rehearse the
             combinations that hurt.
           </p>
 
@@ -1110,7 +1110,7 @@ function ReportScene({
             <p className="dt-dim">3 turns · resolved</p>
           </div>
           <div className="dt-overall">
-            <span className="dt-overall-num">{overall || "—"}</span>
+            <span className="dt-overall-num">{overall || "n/a"}</span>
             <span className="dt-overall-out">/ 5</span>
           </div>
         </div>
@@ -1143,8 +1143,8 @@ function ReportScene({
         <div className={`dt-evidence ${evidenceRevealed ? "is-in" : ""}`}>
           <div className="dt-evidence-label">Evidence · empathy</div>
           <blockquote>
-            &ldquo;I'm sorry about that — let me pull up your folio right now
-            and sort it before you leave.&rdquo;
+            &ldquo;I'm sorry about that. Let me pull up your folio right now and
+            sort it before you leave.&rdquo;
           </blockquote>
         </div>
 
@@ -1212,7 +1212,7 @@ function ReportRow({
           style={{ width: `${fill}%`, background: color }}
         />
       </span>
-      <span className="dt-rep-score">{fill > 0 ? `${score}/5` : "—"}</span>
+      <span className="dt-rep-score">{fill > 0 ? `${score}/5` : "n/a"}</span>
     </div>
   );
 }
@@ -1225,7 +1225,7 @@ function OutroScene() {
         <h3>Train your team on the guests that cost you reviews.</h3>
         <p>Ten free sessions, no card. Five minutes to your first report.</p>
         <Link href="/auth/signup" className="dt-outro-cta">
-          Start free — 10 sessions
+          Start free
         </Link>
       </div>
     </div>

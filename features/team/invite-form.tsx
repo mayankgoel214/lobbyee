@@ -16,7 +16,7 @@ export function InviteForm({ slug }: { slug: string }) {
         <input type="hidden" name="slug" value={slug} />
         <div>
           <Label htmlFor="emails">
-            Email addresses — one per line, up to 10
+            Email addresses (one per line, up to 10)
           </Label>
           <textarea
             id="emails"
@@ -48,9 +48,7 @@ export function InviteForm({ slug }: { slug: string }) {
                   />
                 )}
                 <span className="text-neutral-800">{r.email}</span>
-                {r.note && (
-                  <span className="text-neutral-500"> — {r.note}</span>
-                )}
+                {r.note && <span className="text-neutral-500">: {r.note}</span>}
               </li>
             ))}
           </ul>
@@ -59,8 +57,8 @@ export function InviteForm({ slug }: { slug: string }) {
           {pending ? "Sending invites…" : "Send invites"}
         </Button>
         <p className="text-xs text-neutral-500">
-          Invitees join as staff. Magic links expire after a few days — you can
-          re-invite anytime.
+          Invitees join as staff. Magic links expire after a few days, and you
+          can re-invite anytime.
         </p>
       </form>
     </Card>

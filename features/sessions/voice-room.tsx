@@ -592,7 +592,7 @@ function VoiceRoomInner({
               >
                 <Mic size={16} strokeWidth={1.75} aria-hidden="true" />
               </span>
-              {isMicEnabled ? "Listening — speak naturally" : "Mic muted"}
+              {isMicEnabled ? "Listening, speak naturally" : "Mic muted"}
             </span>
             <button
               type="button"

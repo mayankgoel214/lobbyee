@@ -2,8 +2,8 @@
 
 // Marketing landing page. Client component so the hero-opener CSS keyframes
 // fire on first paint (via .play class toggled after mount) and so we can wire
-// IntersectionObserver for the section reveals. No animation library — CSS +
-// IO only. Respects prefers-reduced-motion (final-state instant, no motion).
+// IntersectionObserver for the section reveals. No animation library (CSS +
+// IO only). Respects prefers-reduced-motion (final-state instant, no motion).
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
@@ -18,7 +18,7 @@ export function Landing() {
   const [playing, setPlaying] = useState(false);
   useEffect(() => {
     // requestAnimationFrame so the browser has a paint before we start
-    // animating — the eyebrow/headline slide-in reads better this way.
+    // animating (the headline slide-in reads better this way).
     const r = requestAnimationFrame(() => setPlaying(true));
     return () => cancelAnimationFrame(r);
   }, []);
@@ -54,8 +54,8 @@ export function Landing() {
 
   return (
     <div className="landing">
-      {/* Scoped styles — keeps the marketing surface self-contained so nothing
-          leaks into the auth-shell app. Ported from the approved motion
+      {/* Scoped styles (keeps the marketing surface self-contained so nothing
+          leaks into the auth-shell app). Ported from the approved motion
           reference, with token colors mapped to our Atrium palette. */}
       <style>{styles}</style>
 
@@ -79,7 +79,6 @@ export function Landing() {
           </span>
           <span className="navlinks">
             <a href="#product">Product</a>
-            <a href="#how">How it works</a>
             <a href="#pricing">Pricing</a>
             <Link href="/auth/signin">Sign in</Link>
             <Link href="/auth/signup" className="cta">
@@ -90,37 +89,31 @@ export function Landing() {
 
         <section className="hero">
           <div className="hero-copy">
-            <span className="eyebrow">
-              <span className="d" aria-hidden />
-              AI role-play for hospitality teams
-            </span>
             <h1>
               <span className="ln">
-                <span>Train your front desk</span>
+                <span>Practice the hard guests</span>
               </span>
               <span className="ln">
-                <span>on the guests that</span>
-              </span>
-              <span className="ln">
-                <span className="accent">cost you reviews.</span>
+                <span className="accent">before they show up.</span>
               </span>
             </h1>
             <p className="sub">
-              Your staff practice the hard conversations against a lifelike AI
-              guest — then get a coaching report scored on empathy, clarity,
-              problem-solving, and professionalism.
+              Your front desk rehearses real difficult-guest situations with a
+              lifelike AI, then gets a coaching report on what to do better. So
+              the first time they handle it for real, it isn&apos;t the first
+              time.
             </p>
             <div className="actions">
               <Link href="/auth/signup" className="btn primary">
-                Start free — 10 sessions
+                Start free
               </Link>
               <Link href="/demo" className="btn ghost">
-                Watch a 60-sec demo
+                Watch the 60-second demo
               </Link>
             </div>
             <p className="trust">
-              No credit card · Built for hotels, restaurants &amp; hospitality
-              groups
+              No credit card needed. Built for hotels, restaurants, and
+              hospitality teams.
             </p>
           </div>
 
@@ -141,15 +134,15 @@ export function Landing() {
             </h2>
             <p className="lede">
               Every angry check-in, refund fight, and review threat is a live
-              exam for your team. The stakes are real, and the practice ground
-              doesn&apos;t exist — until now.
+              exam for your team. The stakes are real. Until now, the practice
+              ground didn&apos;t exist.
             </p>
           </div>
           <div className="stat-grid">
             <div className="stat reveal">
               <div className="stat-num">1 bad review</div>
               <p>
-                can quietly cost dozens of future bookings — travelers scroll
+                can quietly cost dozens of future bookings. Travelers scroll
                 past a property the moment a recent one-star lands near the top.
               </p>
             </div>
@@ -173,183 +166,43 @@ export function Landing() {
         </div>
       </section>
 
-      {/* ---------------- HOW IT WORKS ---------------- */}
-      <section className="section section-alt" id="how">
-        <div className="container">
-          <div className="section-head reveal">
-            <span className="kicker">How it works</span>
-            <h2>Practice, in three steps.</h2>
-            <p className="lede">
-              A session takes about five minutes. Your team walks away with a
-              scored report, evidence-linked feedback, and a clear next thing to
-              work on.
-            </p>
-          </div>
-
-          <ol className="steps">
-            <li className="step reveal">
-              <div className="step-n">1</div>
-              <h3>Pick a guest and a situation</h3>
-              <p>
-                Choose from 15 built-in scenarios (refund demand, overbooked
-                room, noisy neighbor…) or have the AI draft one from your own
-                brief. Each guest has a mood, a stated complaint, and a hidden
-                underlying need.
-              </p>
-              <div className="mini mini-pick" aria-hidden>
-                <span className="chip">Refund demand</span>
-                <span className="chip">Overbooked</span>
-                <span className="chip chip-on">Noisy neighbor</span>
-                <span className="chip">Lost luggage</span>
-                <span className="chip">Wrong charge</span>
-              </div>
-            </li>
-            <li className="step reveal" style={{ transitionDelay: "80ms" }}>
-              <div className="step-n">2</div>
-              <h3>Practice the live conversation</h3>
-              <p>
-                Chat by text or speak by voice. The guest reacts turn-by-turn —
-                mood, tone, and demands shift with what your team says. In- call
-                hints are available if a trainee gets stuck.
-              </p>
-              <div className="mini mini-chat" aria-hidden>
-                <div className="bubble bubble-them">
-                  This is unacceptable. I want a full refund.
-                </div>
-                <div className="bubble bubble-me">
-                  I&apos;m so sorry — walk me through what happened tonight?
-                </div>
-                <div className="mood-strip">
-                  <span
-                    className="mood-dot"
-                    style={{ background: "var(--bad)" }}
-                  />
-                  <span
-                    className="mood-dot"
-                    style={{ background: "var(--warn)" }}
-                  />
-                  <span
-                    className="mood-dot"
-                    style={{ background: "var(--good)", opacity: 0.4 }}
-                  />
-                </div>
-              </div>
-            </li>
-            <li className="step reveal" style={{ transitionDelay: "160ms" }}>
-              <div className="step-n">3</div>
-              <h3>Get a scored coaching report</h3>
-              <p>
-                Empathy, clarity, problem-solving, professionalism — each scored
-                1&ndash;5 with verbatim quotes from the transcript so feedback
-                is never vague. Managers see the whole team on one dashboard.
-              </p>
-              <div className="mini mini-report" aria-hidden>
-                <div className="mini-row">
-                  <span>Empathy</span>
-                  <span className="v-bar">
-                    <span
-                      className="v-fill"
-                      style={{ width: "62%", background: "var(--emp)" }}
-                    />
-                  </span>
-                </div>
-                <div className="mini-row">
-                  <span>Clarity</span>
-                  <span className="v-bar">
-                    <span
-                      className="v-fill"
-                      style={{ width: "80%", background: "var(--clr)" }}
-                    />
-                  </span>
-                </div>
-                <div className="mini-row">
-                  <span>Problem-solving</span>
-                  <span className="v-bar">
-                    <span
-                      className="v-fill"
-                      style={{ width: "76%", background: "var(--prob)" }}
-                    />
-                  </span>
-                </div>
-              </div>
-            </li>
-          </ol>
-        </div>
-      </section>
-
       {/* ---------------- BENTO / PRODUCT ---------------- */}
-      <section className="section" id="product">
+      <section className="section section-alt" id="product">
         <div className="container">
           <div className="section-head reveal">
             <span className="kicker">Product</span>
-            <h2>Everything a training simulator should have.</h2>
+            <h2>This is real training, not a chatbot.</h2>
             <p className="lede">
-              Built specifically for hospitality — not a generic chatbot with a
-              hotel skin.
+              Every part is built for how front-desk conversations actually go.
             </p>
           </div>
           <div className="bento">
-            <div className="bento-card b-lg reveal">
+            {/* Row 1: two WIDE cards, each spans 3 of 6 */}
+            <div className="bento-card b-wide reveal">
               <span className="pill pill-teal">Lifelike guest</span>
-              <h3>A guest with a hidden need and a live mood.</h3>
+              <h3>A guest with a hidden need and a real mood.</h3>
               <p>
-                Every scenario has a stated complaint on the surface and a real
-                underlying need underneath. The guest&apos;s mood moves in real
-                time — de-escalate and it softens, dismiss it and it snaps. This
-                isn&apos;t a bot that folds when you apologize.
+                Every scenario has a surface complaint and a real need
+                underneath. The guest&apos;s mood shifts as you talk: handle it
+                well and they soften, brush them off and they escalate. This is
+                not a bot that gives up the moment you apologize.
               </p>
               <div className="live-mood" aria-hidden>
                 <div className="mood-bar" />
-                <span className="mood-tag">Guest mood · escalating</span>
+                <span className="mood-tag">Guest mood, escalating</span>
               </div>
             </div>
 
             <div
-              className="bento-card reveal"
-              style={{ transitionDelay: "60ms" }}
-            >
-              <span className="pill pill-amber">In-call</span>
-              <h3>Coaching hints while you practice.</h3>
-              <p>
-                Stuck mid-conversation? Ask for a nudge. The coach suggests one
-                next move without giving away the answer.
-              </p>
-            </div>
-
-            <div
-              className="bento-card reveal"
-              style={{ transitionDelay: "120ms" }}
-            >
-              <span className="pill pill-teal">Voice mode</span>
-              <h3>Speak it, don&apos;t just type it.</h3>
-              <p>
-                Real conversations happen out loud. Practice with your voice and
-                hear the guest&apos;s reaction in real time.
-              </p>
-              <div className="wave" aria-hidden>
-                <span />
-                <span />
-                <span />
-                <span />
-                <span />
-                <span />
-                <span />
-                <span />
-                <span />
-                <span />
-              </div>
-            </div>
-
-            <div
-              className="bento-card b-lg reveal"
+              className="bento-card b-wide reveal"
               style={{ transitionDelay: "60ms" }}
             >
               <span className="pill pill-teal">4-competency report</span>
               <h3>Scored on what actually matters.</h3>
               <p>
-                Empathy, clarity, problem-solving, professionalism — 1&ndash;5
-                each, backed by verbatim quotes from the transcript. No mystery
-                scores.
+                Empathy, clarity, problem-solving, and professionalism, each
+                rated 1 to 5 and backed by real quotes from the conversation. No
+                mystery grades.
               </p>
               <div className="mini-report inset" aria-hidden>
                 <div className="mini-row">
@@ -395,15 +248,52 @@ export function Landing() {
               </div>
             </div>
 
+            {/* Row 2: three EQUAL cards, each spans 2 of 6 */}
             <div
-              className="bento-card reveal"
+              className="bento-card b-eq reveal"
+              style={{ transitionDelay: "60ms" }}
+            >
+              <span className="pill pill-amber">In-call</span>
+              <h3>Coaching while you practice.</h3>
+              <p>
+                Get a suggested next move mid-conversation, without handing you
+                the answer.
+              </p>
+            </div>
+
+            <div
+              className="bento-card b-eq reveal"
               style={{ transitionDelay: "120ms" }}
+            >
+              <span className="pill pill-teal">Voice mode</span>
+              <h3>Speak it, don&apos;t just type it.</h3>
+              <p>
+                Practice out loud in voice mode and hear the guest react in real
+                time.
+              </p>
+              <div className="wave" aria-hidden>
+                <span />
+                <span />
+                <span />
+                <span />
+                <span />
+                <span />
+                <span />
+                <span />
+                <span />
+                <span />
+              </div>
+            </div>
+
+            <div
+              className="bento-card b-eq reveal"
+              style={{ transitionDelay: "180ms" }}
             >
               <span className="pill pill-teal">Manager dashboard</span>
               <h3>See the whole team on one page.</h3>
               <p>
-                Track competency scores over time. Spot the trainee who&apos;s
-                strong on clarity but weak on empathy, before a real guest does.
+                Track how everyone scores over time, and catch the person who is
+                great on clarity but weak on empathy before a real guest does.
               </p>
               <div className="dash-mini" aria-hidden>
                 <div className="dash-cell" />
@@ -421,21 +311,21 @@ export function Landing() {
       </section>
 
       {/* ---------------- WHY DIFFERENT ---------------- */}
-      <section className="section section-alt" id="different">
+      <section className="section" id="different">
         <div className="container two-col">
           <div className="reveal">
             <span className="kicker">The moat</span>
             <h2>A guest you can&apos;t just placate.</h2>
             <p className="lede">
-              Most chatbots reward good manners. Real guests don&apos;t. Our
-              engine models a &ldquo;hidden need&rdquo; underneath every stated
-              complaint — the guest is angry about the room, but they really
-              need to feel heard about the wedding they flew in for. Only
-              genuine handling moves them.
+              Most chatbots reward good manners. Real guests don&apos;t. Every
+              scenario has a hidden need under the stated complaint. The guest
+              is angry about the room, but what they really need is to feel
+              heard about the wedding they flew in for. Only genuine handling
+              moves them.
             </p>
             <p className="lede">
               Some scenarios are marked <em>unwinnable</em>. You can&apos;t
-              rescue every conversation — the point is to learn to de-escalate
+              rescue every conversation. The point is to learn to de-escalate
               gracefully, not to always win. That&apos;s hospitality, not a
               video game.
             </p>
@@ -452,7 +342,7 @@ export function Landing() {
               <div className="turn me">
                 <div className="who">You</div>
                 <div className="says">
-                  Please — tell me. This trip mattered a lot, didn&apos;t it?
+                  Please, tell me. This trip mattered a lot, didn&apos;t it?
                 </div>
               </div>
               <div className="turn">
@@ -467,7 +357,7 @@ export function Landing() {
       </section>
 
       {/* ---------------- PRICING ---------------- */}
-      <section className="section" id="pricing">
+      <section className="section section-alt" id="pricing">
         <div className="container">
           <div className="section-head reveal">
             <span className="kicker">Pricing</span>
@@ -518,7 +408,7 @@ export function Landing() {
       </section>
 
       {/* ---------------- FAQ ---------------- */}
-      <section className="section section-alt" id="faq">
+      <section className="section" id="faq">
         <div className="container container-narrow">
           <div className="section-head reveal">
             <span className="kicker">Questions</span>
@@ -561,8 +451,8 @@ export function Landing() {
             </Link>
           </div>
           <p className="early">
-            Be an early design partner — we&apos;re offering founding pricing to
-            our first hotels and hospitality groups.
+            Come in as an early design partner. We&apos;re offering founding
+            pricing to our first hotels and hospitality groups.
           </p>
         </div>
       </section>
@@ -573,7 +463,7 @@ export function Landing() {
           <div className="footer-brand">
             <LobbyeeLogo />
             <p className="footer-tag">
-              AI role-play training for hospitality teams.
+              Practice the hard guests before they show up.
             </p>
           </div>
           <div className="footer-cols">
@@ -582,9 +472,6 @@ export function Landing() {
               <ul>
                 <li>
                   <a href="#product">Features</a>
-                </li>
-                <li>
-                  <a href="#how">How it works</a>
                 </li>
                 <li>
                   <a href="#pricing">Pricing</a>
@@ -748,12 +635,12 @@ function ReportRow({
 /* ---------------- FAQ data ---------------- */
 const faqs = [
   {
-    q: "Text or voice — which should we use?",
+    q: "Text or voice, which should we use?",
     a: "Both. Start with text so trainees can slow down and think about phrasing. Move to voice once they're ready to practice under real-time pressure. Voice sessions grade the same four competencies and produce the same coaching report.",
   },
   {
     q: "Do we have to write our own scenarios?",
-    a: "No. Lobbyee ships with 15 built-in hospitality scenarios covering the situations that most often go wrong — refund demands, overbooking, noisy neighbors, lost luggage, wrong charges, and more. Need something specific to your property? Give the AI a one-line brief and it drafts a full scenario for you.",
+    a: "No. Lobbyee ships with 15 built-in hospitality scenarios covering the situations that most often go wrong: refund demands, overbooking, noisy neighbors, lost luggage, wrong charges, and more. Need something specific to your property? Give the AI a one-line brief and it drafts a full scenario for you.",
   },
   {
     q: "Is our data private?",
@@ -761,11 +648,11 @@ const faqs = [
   },
   {
     q: "How does the AI grade the conversation?",
-    a: "Four competencies — empathy, clarity, problem-solving, professionalism — are each scored 1 to 5. Every score is backed by verbatim quotes from the transcript, so you can see exactly why the score is what it is. If we can't ground a claim in a real quote, we don't make it.",
+    a: "Four competencies (empathy, clarity, problem-solving, and professionalism) are each scored 1 to 5. Every score is backed by verbatim quotes from the transcript, so you can see exactly why the score is what it is. If we can't ground a claim in a real quote, we don't make it.",
   },
   {
     q: "What does it cost?",
-    a: "Free for your first 10 practice sessions — no card. After that, Starter is $100 per workspace per month for 50 sessions, everything included. Bigger teams? Talk to us about founding-partner pricing.",
+    a: "Free for your first 10 practice sessions, no card required. After that, Starter is $100 per workspace per month for 50 sessions, everything included. Bigger teams? Talk to us about founding-partner pricing.",
   },
 ];
 
@@ -796,10 +683,13 @@ const styles = /* css */ `
 
 /* -------- Hero stage -------- */
 .landing .stage { position: relative; min-height: 100vh; overflow: hidden; isolation: isolate; }
-.landing .glow { position: absolute; border-radius: 50%; filter: blur(90px); opacity: 0; z-index: 0; pointer-events: none; }
-.landing .glow.g1 { width: 620px; height: 620px; right: -140px; top: -180px; background: radial-gradient(circle, rgba(18,163,148,.42), transparent 70%); }
-.landing .glow.g2 { width: 520px; height: 520px; left: -120px; bottom: -160px; background: radial-gradient(circle, rgba(59,130,196,.30), transparent 70%); }
-.landing .glow.g3 { width: 420px; height: 420px; left: 44%; top: 30%; background: radial-gradient(circle, rgba(246,178,60,.16), transparent 70%); }
+.landing .glow { position: absolute; border-radius: 50%; filter: blur(110px); opacity: 0; z-index: 0; pointer-events: none; }
+/* g1 is the dominant teal wash sitting behind the headline area. Made large
+   and generous so the hero reads as a deliberate green, not a faint tint. */
+.landing .glow.g1 { width: 980px; height: 980px; left: -160px; top: -260px; background: radial-gradient(circle, rgba(18,163,148,.62), rgba(62,224,203,.28) 40%, transparent 72%); }
+/* g2/g3 stay subtler so g1 dominates. */
+.landing .glow.g2 { width: 460px; height: 460px; right: -140px; bottom: -140px; background: radial-gradient(circle, rgba(59,130,196,.18), transparent 70%); }
+.landing .glow.g3 { width: 360px; height: 360px; right: 6%; top: 8%; background: radial-gradient(circle, rgba(18,163,148,.28), transparent 70%); }
 .landing .grid-tex {
   position: absolute; inset: 0; z-index: 0; opacity: 0;
   background-image: linear-gradient(rgba(20,24,33,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(20,24,33,.035) 1px, transparent 1px);
@@ -828,9 +718,7 @@ const styles = /* css */ `
 /* -------- Hero content -------- */
 .landing .hero { position: relative; z-index: 2; max-width: 1160px; margin: 0 auto; padding: 30px 28px 80px; display: grid; grid-template-columns: 1.05fr .95fr; gap: 48px; align-items: center; }
 @media (max-width: 880px) { .landing .hero { grid-template-columns: 1fr; gap: 36px; padding-bottom: 56px; } }
-.landing .eyebrow { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600; color: var(--teal); background: rgba(18,163,148,.1); padding: 6px 12px; border-radius: 999px; margin-bottom: 22px; opacity: 0; }
-.landing .eyebrow .d { width: 6px; height: 6px; border-radius: 99px; background: var(--teal); }
-.landing h1 { font-size: clamp(34px, 5.2vw, 58px); line-height: 1.04; letter-spacing: -0.03em; margin: 0 0 20px; font-weight: 680; }
+.landing h1 { font-family: var(--font-display), var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif; font-size: clamp(38px, 5.4vw, 64px); line-height: 1.04; letter-spacing: -0.028em; margin: 0 0 22px; font-weight: 620; }
 .landing h1 .ln { display: block; overflow: hidden; }
 .landing h1 .ln > span { display: block; transform: translateY(110%); will-change: transform; }
 .landing h1 .accent { color: var(--teal); }
@@ -888,15 +776,13 @@ const styles = /* css */ `
 .landing .play .mark .halo { animation: lb-halo .9s ease .66s forwards; }
 .landing .play .brand .wm { animation: lb-rise .55s ease .5s forwards; }
 .landing .play .navlinks { animation: lb-fadein .6s ease .8s forwards; }
-.landing .play .eyebrow { animation: lb-rise .6s ease .55s forwards; }
 .landing .play h1 .ln > span { animation: lb-risein .7s cubic-bezier(.2,.8,.2,1) forwards; }
-.landing .play h1 .ln:nth-child(1) > span { animation-delay: .62s; }
-.landing .play h1 .ln:nth-child(2) > span { animation-delay: .72s; }
-.landing .play h1 .ln:nth-child(3) > span { animation-delay: .82s; }
-.landing .play .sub { animation: lb-rise .7s ease .95s forwards; }
-.landing .play .actions { animation: lb-rise .7s ease 1.05s forwards; }
-.landing .play .trust { animation: lb-fadein .7s ease 1.25s forwards; }
-.landing .play .card-wrap { animation: lb-cardin .9s cubic-bezier(.2,.8,.2,1) .85s forwards; }
+.landing .play h1 .ln:nth-child(1) > span { animation-delay: .5s; }
+.landing .play h1 .ln:nth-child(2) > span { animation-delay: .6s; }
+.landing .play .sub { animation: lb-rise .7s ease .8s forwards; }
+.landing .play .actions { animation: lb-rise .7s ease .95s forwards; }
+.landing .play .trust { animation: lb-fadein .7s ease 1.15s forwards; }
+.landing .play .card-wrap { animation: lb-cardin .9s cubic-bezier(.2,.8,.2,1) .7s forwards; }
 .landing .play .card .fill { animation: lb-grow .8s cubic-bezier(.2,.8,.2,1) forwards; }
 .landing .play .card .row:nth-child(2) .fill { animation-delay: 1.25s; }
 .landing .play .card .row:nth-child(3) .fill { animation-delay: 1.35s; }
@@ -922,7 +808,7 @@ const styles = /* css */ `
 .landing .container-narrow { max-width: 760px; }
 .landing .section-head { max-width: 720px; margin: 0 auto 56px; text-align: center; }
 .landing .kicker { display: inline-block; font-size: 11.5px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--teal); background: rgba(18,163,148,.1); padding: 5px 11px; border-radius: 999px; margin-bottom: 16px; }
-.landing h2 { font-size: clamp(28px, 3.4vw, 40px); line-height: 1.1; letter-spacing: -0.025em; margin: 0 0 14px; font-weight: 660; }
+.landing h2 { font-family: var(--font-display), var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif; font-size: clamp(28px, 3.4vw, 42px); line-height: 1.1; letter-spacing: -0.022em; margin: 0 0 14px; font-weight: 600; }
 .landing h3 { font-size: 18px; margin: 0 0 8px; letter-spacing: -0.015em; font-weight: 620; }
 .landing .lede { font-size: 17px; color: var(--lb-muted); line-height: 1.55; margin: 0; }
 
@@ -962,14 +848,20 @@ const styles = /* css */ `
 .landing .v-bar { display: block; height: 6px; background: #eef1f5; border-radius: 99px; overflow: hidden; }
 .landing .v-fill { display: block; height: 100%; border-radius: 99px; }
 
-/* -------- Bento -------- */
-.landing .bento { display: grid; grid-template-columns: repeat(6, 1fr); grid-auto-rows: minmax(200px, auto); gap: 20px; }
-.landing .bento-card { grid-column: span 2; background: var(--lb-surface); border: 1px solid var(--lb-line); border-radius: 20px; padding: 26px; display: flex; flex-direction: column; gap: 12px; transition: transform .2s ease, box-shadow .2s ease; }
+/* -------- Bento (2+3 on a 6-col grid) -------- */
+.landing .bento { display: grid; grid-template-columns: repeat(6, 1fr); grid-auto-rows: minmax(220px, auto); gap: 20px; }
+.landing .bento-card { background: var(--lb-bg); border: 1px solid var(--lb-line); border-radius: 20px; padding: 26px; display: flex; flex-direction: column; gap: 12px; transition: transform .2s ease, box-shadow .2s ease; }
 .landing .bento-card:hover { transform: translateY(-2px); box-shadow: 0 16px 40px rgba(16,20,30,.08); }
-.landing .bento-card.b-lg { grid-column: span 4; }
+/* Row 1: two wide cards, each spanning half the row. */
+.landing .bento-card.b-wide { grid-column: span 3; }
+/* Row 2: three equal cards, each spanning a third. */
+.landing .bento-card.b-eq { grid-column: span 2; }
 .landing .bento-card p { color: var(--lb-muted); font-size: 15px; line-height: 1.55; margin: 0; }
 .landing .bento-card .pill { align-self: flex-start; }
-@media (max-width: 900px) { .landing .bento { grid-template-columns: 1fr; } .landing .bento-card, .landing .bento-card.b-lg { grid-column: span 1; } }
+@media (max-width: 900px) {
+  .landing .bento { grid-template-columns: 1fr; grid-auto-rows: auto; }
+  .landing .bento-card.b-wide, .landing .bento-card.b-eq { grid-column: span 1; }
+}
 
 .landing .live-mood { margin-top: auto; padding-top: 14px; }
 .landing .mood-bar { height: 10px; border-radius: 99px; background: linear-gradient(90deg, var(--good) 0%, var(--warn) 55%, var(--bad) 100%); position: relative; }
@@ -1055,9 +947,9 @@ const styles = /* css */ `
 .landing .footer-cols a:hover { color: var(--lb-ink); }
 .landing .footer-copy { border-top: 1px solid var(--lb-line); padding: 20px 0; font-size: 13px; color: var(--lb-faint); }
 
-/* -------- Reduced motion — everything final-state, no animation -------- */
+/* -------- Reduced motion: everything final-state, no animation -------- */
 @media (prefers-reduced-motion: reduce) {
-  .landing .glow, .landing .grid-tex, .landing .brand .wm, .landing .navlinks, .landing .eyebrow, .landing .sub, .landing .actions, .landing .trust, .landing .card-wrap { opacity: 1 !important; animation: none !important; }
+  .landing .glow, .landing .grid-tex, .landing .brand .wm, .landing .navlinks, .landing .sub, .landing .actions, .landing .trust, .landing .card-wrap { opacity: 1 !important; animation: none !important; }
   .landing .card-wrap { transform: none !important; }
   .landing h1 .ln > span { transform: none !important; animation: none !important; }
   .landing .mark .arc { stroke-dashoffset: 0 !important; animation: none !important; }

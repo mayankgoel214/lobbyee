@@ -50,7 +50,7 @@ function Trend({ delta }: { delta: number | null }) {
 // weakest cell at a glance. Neutral if the score is missing.
 function ScoreTag({ score }: { score: number | null }) {
   if (score === null || Number.isNaN(score)) {
-    return <span className="tabular-nums text-neutral-400">—</span>;
+    return <span className="tabular-nums text-neutral-400">n/a</span>;
   }
   const tone = scoreTone(score);
   const toneClass =
@@ -208,7 +208,7 @@ export default async function DashboardPage({
               </div>
               <p className="text-2xl font-semibold tabular-nums tracking-tight text-neutral-900">
                 {avg === null ? (
-                  <span className="text-neutral-300">—</span>
+                  <span className="text-neutral-300">n/a</span>
                 ) : (
                   <>
                     {avg.toFixed(1)}
@@ -258,7 +258,7 @@ export default async function DashboardPage({
                     Team competency
                   </h2>
                   <p className="text-xs text-neutral-500">
-                    Per-staff means across the window — weakest overall at top.
+                    Per-staff means across the window. Weakest overall at top.
                   </p>
                 </div>
               </div>
@@ -362,7 +362,7 @@ export default async function DashboardPage({
                       />
                     </span>
                     <span className="text-right text-xs font-semibold tabular-nums text-neutral-900">
-                      {avg === null ? "—" : avg.toFixed(1)}
+                      {avg === null ? "n/a" : avg.toFixed(1)}
                     </span>
                   </li>
                 );
@@ -390,7 +390,7 @@ export default async function DashboardPage({
                     >
                       {COMPETENCY_LABELS[missed.weakest]}
                     </span>{" "}
-                    is the team&rsquo;s most-missed area —{" "}
+                    is the team&rsquo;s most-missed area:{" "}
                     {missed.byCompetency[missed.weakest]} of {missed.total}{" "}
                     missed moments this month.
                   </p>

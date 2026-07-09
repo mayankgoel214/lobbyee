@@ -17,7 +17,7 @@ export function SubscribeButton({ slug }: { slug: string }) {
     <form action={formAction}>
       <input type="hidden" name="slug" value={slug} />
       <Button type="submit" disabled={pending}>
-        {pending ? "Opening checkout…" : "Subscribe — $100/month"}
+        {pending ? "Opening checkout…" : "Subscribe for $100/month"}
       </Button>
       <FormError>{state.error}</FormError>
     </form>

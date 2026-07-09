@@ -25,7 +25,7 @@ export default async function PersonasPage({
             Guests
           </h1>
           <p className="mt-1 text-sm text-neutral-500">
-            The <em>who</em> — the people your staff practice with, each with
+            The <em>who</em>: the people your staff practice with, each with
             their own temperament and backstory. One guest can play any
             situation, so a few guests go a long way.
           </p>
@@ -44,7 +44,7 @@ export default async function PersonasPage({
           <p className="text-sm text-neutral-600">
             No personas yet.{" "}
             {admin
-              ? "Create your first guest — a name, a type, a short backstory, and a starting mood."
+              ? "Create your first guest: a name, a type, a short backstory, and a starting mood."
               : "Ask a manager to create one."}
           </p>
         </Card>

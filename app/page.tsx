@@ -10,21 +10,22 @@ import { redirect } from "next/navigation";
 import { Landing } from "@/features/marketing/landing";
 import { afterAuthDestination, getUser } from "@/lib/auth/session";
 
+const title = "Lobbyee: practice the hard guests before they show up";
 const description =
-  "AI role-play training for hospitality teams. Your staff practice the hard conversations against a lifelike AI guest, then get a coaching report scored on empathy, clarity, problem-solving, and professionalism.";
+  "Training for hospitality teams. Your staff rehearse the hard guest conversations against a lifelike AI, then get a coaching report scored on empathy, clarity, problem-solving, and professionalism.";
 
 export const metadata: Metadata = {
-  title: "Lobbyee — AI role-play training for hospitality teams",
+  title,
   description,
   openGraph: {
-    title: "Lobbyee — AI role-play training for hospitality teams",
+    title,
     description,
     type: "website",
     siteName: "Lobbyee",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Lobbyee — AI role-play training for hospitality teams",
+    title,
     description,
   },
 };

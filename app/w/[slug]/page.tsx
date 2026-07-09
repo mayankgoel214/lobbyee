@@ -27,7 +27,7 @@ export default async function WorkspaceHome({
       </h1>
       <p className="mt-1 text-sm text-neutral-500">
         {admin
-          ? "Invite your front-line staff — each person gets a magic link by email."
+          ? "Invite your front-line staff. Each person gets a magic link by email."
           : "Your team. Training scenarios arrive in the next release."}
       </p>
 
@@ -43,7 +43,7 @@ export default async function WorkspaceHome({
           </thead>
           <tbody>
             {members.map((m) => {
-              const name = m.profile.fullName ?? m.profile.email ?? "—";
+              const name = m.profile.fullName ?? m.profile.email ?? "No name";
               const initials = name
                 .split(/[\s@]+/)
                 .map((p) => p[0])
@@ -64,7 +64,7 @@ export default async function WorkspaceHome({
                         {initials}
                       </span>
                       <span className="font-semibold text-neutral-900">
-                        {m.profile.fullName ?? "—"}
+                        {m.profile.fullName ?? "No name"}
                         {m.userId === user.id && (
                           <span className="ml-2 text-xs font-normal text-neutral-400">
                             you

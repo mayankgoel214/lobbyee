@@ -180,7 +180,7 @@ describe("evaluator prompts", () => {
   it("every competency renders a system prompt with its rubric and the grounding rule", () => {
     for (const competency of COMPETENCIES) {
       const system = renderEvaluatorSystem(competency);
-      expect(system).toContain("Score anchors (1-5)");
+      expect(system).toContain("Score anchors (1 to 5)");
       expect(system).toContain("EVIDENCE GROUNDING");
       expect(system).toContain("verbatim");
     }

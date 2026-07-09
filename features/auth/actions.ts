@@ -44,7 +44,7 @@ export async function signUpAction(
   });
   if (!limit.ok) {
     return {
-      error: "Too many sign-up attempts from this network — try again later.",
+      error: "Too many sign-up attempts from this network. Try again later.",
     };
   }
 

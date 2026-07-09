@@ -71,7 +71,7 @@ export async function inviteStaffAction(
             results.push({
               email,
               status: "failed",
-              note: "invite failed — try again",
+              note: "invite failed, try again",
             });
             continue;
           }
@@ -103,7 +103,7 @@ export async function inviteStaffAction(
       console.error("invite failed:", email, msg);
       const note = msg.includes("Unique constraint")
         ? "already a member"
-        : "invite failed — try again";
+        : "invite failed, try again";
       results.push({ email, status: "failed", note });
     }
   }

@@ -28,7 +28,7 @@ export default function NewPersonaPage({
     <main className="mx-auto max-w-xl p-6">
       <h1 className="mb-1 text-xl font-semibold text-neutral-900">New guest</h1>
       <p className="mb-6 text-sm text-neutral-500">
-        Define who this guest is — their temperament and story. You'll pair them
+        Define who this guest is: their temperament and story. You'll pair them
         with any situation when you start a session.
       </p>
       <Card>
@@ -65,7 +65,7 @@ export default function NewPersonaPage({
             />
           </div>
           <fieldset>
-            <Label>Baseline mood — where the guest starts (0–100)</Label>
+            <Label>Baseline mood: where the guest starts (0 to 100)</Label>
             <div className="mt-2 flex flex-col gap-3">
               {MOODS.map((m) => (
                 <div key={m.key} className="flex items-center gap-3">

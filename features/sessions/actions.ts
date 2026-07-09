@@ -114,12 +114,11 @@ export async function startSessionAction(
   ]);
   if (inProgress >= MAX_IN_PROGRESS_PER_USER) {
     return {
-      error:
-        "You have open sessions already — end one before starting another.",
+      error: "You have open sessions already. End one before starting another.",
     };
   }
   if (lastDay >= MAX_SESSIONS_PER_USER_PER_DAY) {
-    return { error: "Daily session limit reached — try again tomorrow." };
+    return { error: "Daily session limit reached. Try again tomorrow." };
   }
 
   const mood: MoodVector = isMoodVector(persona.baselineMood)
@@ -139,8 +138,8 @@ export async function startSessionAction(
     if (slot.plan === "trial") {
       return {
         error: isAdmin(membership.role)
-          ? `Your workspace has used all ${slot.cap} free trial sessions — upgrade on the Billing page to keep training.`
-          : `Your workspace has used all ${slot.cap} free trial sessions — ask your manager about upgrading.`,
+          ? `Your workspace has used all ${slot.cap} free trial sessions. Upgrade on the Billing page to keep training.`
+          : `Your workspace has used all ${slot.cap} free trial sessions. Ask your manager about upgrading.`,
       };
     }
     return {
@@ -204,7 +203,7 @@ export async function startSessionAction(
         releaseError,
       ),
     );
-    return { error: "Couldn't start the session — try again." };
+    return { error: "Couldn't start the session. Try again." };
   }
   try {
     await db.message.create({
@@ -234,7 +233,7 @@ export async function startSessionAction(
         releaseError,
       ),
     );
-    return { error: "Couldn't start the session — try again." };
+    return { error: "Couldn't start the session. Try again." };
   }
 
   // Opening coach hint (§5g) — collect the concurrently-started hint. Best
@@ -284,7 +283,7 @@ export async function sendTurnAction(input: {
   if (!limit.ok) {
     return {
       ok: false,
-      error: `You're sending replies very fast — wait ${limit.retryAfterSeconds}s and try again.`,
+      error: `You're sending replies very fast. Wait ${limit.retryAfterSeconds}s and try again.`,
     };
   }
 
@@ -314,7 +313,7 @@ export async function sendTurnAction(input: {
   if (conversationTurns >= 80) {
     return {
       ok: false,
-      error: "This session is very long — end it to get your transcript.",
+      error: "This session is very long. End it to get your transcript.",
     };
   }
 
@@ -358,13 +357,13 @@ export async function sendTurnAction(input: {
     let error: string;
     switch (outcome.reason) {
       case "collision":
-        error = "Another reply is already in flight — refresh to catch up.";
+        error = "Another reply is already in flight. Refresh to catch up.";
         break;
       case "guest_failed":
-        error = "The guest didn't respond — try sending that again.";
+        error = "The guest didn't respond. Try sending that again.";
         break;
       default:
-        error = "Something went wrong — try sending that again.";
+        error = "Something went wrong. Try sending that again.";
         outcome.reason satisfies never;
     }
     return { ok: false, error };

@@ -65,12 +65,10 @@ export default function NewScenarioPage({
         setResolutionPath(res.suggestion.resolutionPath);
         setResolvability(res.suggestion.resolvability);
       } else {
-        setSuggestError(
-          res.error ?? "Couldn't draft a suggestion — try again.",
-        );
+        setSuggestError(res.error ?? "Couldn't draft a suggestion. Try again.");
       }
     } catch {
-      setSuggestError("Couldn't draft a suggestion — try again.");
+      setSuggestError("Couldn't draft a suggestion. Try again.");
     } finally {
       setSuggesting(false);
     }
@@ -82,9 +80,9 @@ export default function NewScenarioPage({
         New situation
       </h1>
       <p className="mb-6 text-sm text-neutral-500">
-        Describe what's happening, not who the guest is — any guest can play
-        this situation. The success criteria drive the coaching, so specific
-        beats vague.
+        Describe what's happening, not who the guest is. Any guest can play this
+        situation. The success criteria drive the coaching, so specific beats
+        vague.
       </p>
       <Card>
         <form action={action} className="flex flex-col gap-4">
@@ -101,9 +99,7 @@ export default function NewScenarioPage({
             />
           </div>
           <div>
-            <Label htmlFor="situation">
-              The situation — what just happened
-            </Label>
+            <Label htmlFor="situation">The situation: what just happened</Label>
             <textarea
               id="situation"
               name="situation"
@@ -117,7 +113,7 @@ export default function NewScenarioPage({
             />
           </div>
           <div>
-            <Label htmlFor="difficulty">Difficulty (1–5)</Label>
+            <Label htmlFor="difficulty">Difficulty (1 to 5)</Label>
             <Input
               id="difficulty"
               name="difficulty"
@@ -130,7 +126,7 @@ export default function NewScenarioPage({
           </div>
           <div>
             <Label htmlFor="successCriteria">
-              Success criteria — one per line
+              Success criteria (one per line)
             </Label>
             <textarea
               id="successCriteria"
@@ -167,8 +163,8 @@ export default function NewScenarioPage({
             </div>
             <p className="mb-3 text-xs text-neutral-500">
               The real issue beneath the surface complaint. The guest won't
-              volunteer it — staff have to uncover it to fully satisfy them.
-              Fill a title and situation, then let AI draft a starting point.
+              volunteer it. Staff have to uncover it to fully satisfy them. Fill
+              a title and situation, then let AI draft a starting point.
             </p>
 
             <div className="mb-3">
@@ -182,7 +178,7 @@ export default function NewScenarioPage({
                 maxLength={600}
                 value={underlyingNeed}
                 onChange={(e) => setUnderlyingNeed(e.target.value)}
-                placeholder="They feel accused of lying and want their honesty respected — the $40 is really about their dignity."
+                placeholder="They feel accused of lying and want their honesty respected. The $40 is really about their dignity."
                 className={textareaClass}
               />
             </div>

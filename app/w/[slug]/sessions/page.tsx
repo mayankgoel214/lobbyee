@@ -1,6 +1,7 @@
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { Badge, Card } from "@/components/ui";
+import { scoreTone } from "@/features/evaluations/colors";
 import { isAdmin, requireMembership } from "@/lib/auth/session";
 import { dbForRequest } from "@/lib/db/scoped";
 
@@ -99,7 +100,7 @@ export default async function SessionsPage({
         {viewingOther && (
           <Link
             href={`/w/${slug}/dashboard`}
-            className="inline-flex items-center gap-1 text-sm text-accent-600 transition-colors hover:text-accent-700"
+            className="inline-flex items-center gap-1 text-sm text-accent-700 transition-colors hover:text-accent-800"
           >
             <ArrowLeft size={16} strokeWidth={2} aria-hidden="true" />
             Dashboard
@@ -114,7 +115,7 @@ export default async function SessionsPage({
             {!viewingOther && (
               <Link
                 href={`/w/${slug}/train`}
-                className="font-medium text-accent-600 hover:text-accent-700"
+                className="font-medium text-accent-700 hover:text-accent-800"
               >
                 Start your first practice conversation
               </Link>
@@ -123,39 +124,45 @@ export default async function SessionsPage({
         </Card>
       ) : (
         <ul className="flex flex-col gap-2">
-          {sessions.map((s) => (
-            <li key={s.id}>
-              <Link
-                href={`/w/${slug}/sessions/${s.id}`}
-                className="flex items-center justify-between gap-3 rounded-2xl border border-neutral-200 bg-white p-4 transition-colors hover:border-neutral-300"
-              >
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-neutral-900">
-                    {s.scenario.title}
-                  </p>
-                  <p className="mt-0.5 text-xs text-neutral-500">
-                    with {s.persona.name} ·{" "}
-                    {s.startedAt.toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                    })}
-                  </p>
-                </div>
-                {s.evaluation ? (
-                  <Badge variant="neutral" className="shrink-0 tabular-nums">
-                    {avgScore(s.evaluation)}/5
-                  </Badge>
-                ) : (
-                  <Badge
-                    variant={s.status === "in_progress" ? "accent" : "neutral"}
-                    className="shrink-0"
-                  >
-                    {STATUS_LABEL[s.status] ?? s.status}
-                  </Badge>
-                )}
-              </Link>
-            </li>
-          ))}
+          {sessions.map((s) => {
+            const avg = s.evaluation ? Number(avgScore(s.evaluation)) : null;
+            const tone = avg !== null ? scoreTone(avg) : null;
+            return (
+              <li key={s.id}>
+                <Link
+                  href={`/w/${slug}/sessions/${s.id}`}
+                  className="flex items-center justify-between gap-3 rounded-xl border border-neutral-200 bg-white p-4 shadow-sm transition-colors hover:border-neutral-300"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-neutral-900">
+                      {s.scenario.title}
+                    </p>
+                    <p className="mt-0.5 text-xs text-neutral-500">
+                      with {s.persona.name} ·{" "}
+                      {s.startedAt.toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                      })}
+                    </p>
+                  </div>
+                  {avg !== null && tone ? (
+                    <Badge variant={tone} className="shrink-0 tabular-nums">
+                      {avg.toFixed(1)}/5
+                    </Badge>
+                  ) : (
+                    <Badge
+                      variant={
+                        s.status === "in_progress" ? "accent" : "neutral"
+                      }
+                      className="shrink-0"
+                    >
+                      {STATUS_LABEL[s.status] ?? s.status}
+                    </Badge>
+                  )}
+                </Link>
+              </li>
+            );
+          })}
         </ul>
       )}
     </main>

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useActionState, useState } from "react";
-import { LobbyeeLogo, LobbyeeMark } from "@/components/logo";
+import { LobbyeeLogo } from "@/components/logo";
 import { Button, FormError, FormMessage, Input, Label } from "@/components/ui";
 import {
   type AuthFormState,
@@ -73,7 +73,7 @@ export default function SignInPage() {
               </Button>
               <button
                 type="button"
-                className="text-sm text-accent-600 transition-colors hover:text-accent-700"
+                className="text-sm text-accent-700 transition-colors hover:text-accent-800"
                 onClick={() => setMode("magic")}
               >
                 Email me a magic link instead
@@ -98,7 +98,7 @@ export default function SignInPage() {
               </Button>
               <button
                 type="button"
-                className="text-sm text-accent-600 transition-colors hover:text-accent-700"
+                className="text-sm text-accent-700 transition-colors hover:text-accent-800"
                 onClick={() => setMode("password")}
               >
                 Use a password instead
@@ -108,7 +108,7 @@ export default function SignInPage() {
           <p className="mt-8 text-center text-sm text-neutral-500">
             New here?{" "}
             <Link
-              className="font-medium text-accent-600 hover:text-accent-700"
+              className="font-medium text-accent-700 hover:text-accent-800"
               href="/auth/signup"
             >
               Create an account
@@ -117,19 +117,25 @@ export default function SignInPage() {
         </div>
       </div>
 
-      {/* Brand panel — hidden on mobile. */}
+      {/* Brand panel — ink base with a teal gradient wash. Hidden on mobile. */}
       <aside
-        className="hidden flex-col justify-between bg-neutral-900 px-12 py-12 text-white md:flex"
+        className="relative hidden flex-col justify-between overflow-hidden bg-neutral-900 px-12 py-12 text-white md:flex"
         aria-hidden="true"
       >
-        <LobbyeeMark size={36} />
-        <div>
+        <div
+          className="pointer-events-none absolute inset-0 bg-gradient-to-br from-accent-700/70 via-neutral-900 to-clarity/40"
+          aria-hidden="true"
+        />
+        <div className="relative z-10">
+          <LobbyeeLogo tone="light" markSize={32} />
+        </div>
+        <div className="relative z-10">
           <p className="font-serif text-3xl leading-snug tracking-tight text-white">
             Practice every difficult guest,
             <br />
             before it&rsquo;s real.
           </p>
-          <ul className="mt-10 flex flex-wrap gap-x-6 gap-y-2 text-sm text-neutral-400">
+          <ul className="mt-10 flex flex-wrap gap-x-6 gap-y-2 text-sm text-white/60">
             {COMPETENCY_WORDS.map((w) => (
               <li key={w}>{w}</li>
             ))}

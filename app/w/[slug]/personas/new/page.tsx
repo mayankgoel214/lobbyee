@@ -60,7 +60,7 @@ export default function NewPersonaPage({
               rows={4}
               maxLength={600}
               placeholder="Travels weekly for work and guards her expense reports carefully. Efficient, polite, and hates feeling brushed off."
-              className="w-full rounded-lg border border-neutral-300 bg-white px-3.5 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none transition-colors focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20"
+              className="w-full rounded-lg border border-neutral-200 bg-white px-3.5 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none transition-colors focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20"
               required
             />
           </div>

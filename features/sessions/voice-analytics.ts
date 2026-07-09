@@ -81,9 +81,9 @@ export function wellbeing(m: MoodVector): number {
 }
 
 export function wellbeingLabel(w: number): { text: string; tone: string } {
-  if (w >= 67) return { text: "Going well", tone: "text-emerald-600" };
-  if (w >= 40) return { text: "Finding footing", tone: "text-accent-600" };
-  return { text: "Needs care", tone: "text-amber-600" };
+  if (w >= 67) return { text: "Going well", tone: "text-good" };
+  if (w >= 40) return { text: "Finding footing", tone: "text-accent-700" };
+  return { text: "Needs care", tone: "text-warn" };
 }
 
 // Clamp+round to 0-100. A non-finite input (NaN/Infinity) collapses to 0 so a

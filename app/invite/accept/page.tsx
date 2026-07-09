@@ -61,7 +61,7 @@ export default async function AcceptInvitePage() {
             </p>
             <Link
               href={`/w/${activeWorkspace.slug}`}
-              className="mx-auto mt-2 inline-flex items-center justify-center gap-2 rounded-lg bg-accent-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-accent-700"
+              className="mx-auto mt-2 inline-flex items-center justify-center gap-2 rounded-lg bg-accent-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-accent-700"
             >
               Go to your workspace
             </Link>
@@ -77,7 +77,7 @@ export default async function AcceptInvitePage() {
             </p>
             <Link
               href="/onboarding/workspace"
-              className="text-sm font-medium text-accent-600 hover:text-accent-700"
+              className="text-sm font-medium text-accent-700 hover:text-accent-800"
             >
               Create a workspace
             </Link>

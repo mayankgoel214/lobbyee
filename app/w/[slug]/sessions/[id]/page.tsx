@@ -15,6 +15,7 @@ import { isMoodVector } from "@/lib/ai/mood";
 import { requireMembership } from "@/lib/auth/session";
 import { dbForRequest } from "@/lib/db/scoped";
 import { drainSession } from "@/lib/eval/service";
+import { asResolvability, RESOLVABILITY_LABELS } from "@/lib/scenario/depth";
 import type { CompetencyKey } from "@/prompts/evaluator";
 
 // Ending a session kicks off the evaluator via after() — give the function
@@ -147,6 +148,14 @@ export default async function SessionPage({
     }
   }
 
+  const resolvability = asResolvability(session.scenario.resolvability);
+  const resolvabilityVariant =
+    resolvability === "resolvable"
+      ? "good"
+      : resolvability === "partial"
+        ? "warn"
+        : "bad";
+
   return (
     <main className="mx-auto max-w-xl p-6">
       <div className="mb-5 flex items-start justify-between gap-3">
@@ -154,8 +163,11 @@ export default async function SessionPage({
           <h1 className="text-lg font-semibold text-neutral-900">
             {session.scenario.title}
           </h1>
-          <p className="mt-0.5 text-sm text-neutral-500">
+          <p className="mt-0.5 flex flex-wrap items-center gap-2 text-sm text-neutral-500">
             with {session.persona.name} · {chatMessages.length} turns
+            <Badge variant={resolvabilityVariant}>
+              {RESOLVABILITY_LABELS[resolvability]}
+            </Badge>
           </p>
         </div>
         <Badge
@@ -188,18 +200,18 @@ export default async function SessionPage({
           const cited = citedKinds.get(m.id);
           const ring =
             cited === "missed_opportunity"
-              ? "ring-2 ring-accent-300"
+              ? "ring-2 ring-warn/60"
               : cited === "strength"
-                ? "ring-2 ring-emerald-300"
+                ? "ring-2 ring-good/60"
                 : "";
           return (
             <div
               key={m.turnIndex}
               id={`m-${m.id}`}
-              className={`max-w-[80%] scroll-mt-6 rounded-2xl px-3.5 py-2.5 text-sm ${ring} ${
+              className={`max-w-[80%] scroll-mt-6 rounded-2xl px-3.5 py-2.5 text-sm shadow-sm ${ring} ${
                 m.role === "guest"
-                  ? "self-start border border-neutral-200 bg-white text-neutral-900"
-                  : "self-end bg-neutral-900 text-white"
+                  ? "self-start rounded-bl-md border border-neutral-200 bg-white text-neutral-900"
+                  : "self-end rounded-br-md bg-accent-600 text-white"
               }`}
             >
               {m.text}
@@ -210,7 +222,7 @@ export default async function SessionPage({
       <div className="mt-6">
         <Link
           href={`/w/${slug}/train`}
-          className="inline-flex items-center gap-1 text-sm font-medium text-accent-600 transition-colors hover:text-accent-700"
+          className="inline-flex items-center gap-1 text-sm font-medium text-accent-700 transition-colors hover:text-accent-800"
         >
           <ArrowLeft size={16} strokeWidth={2} aria-hidden="true" />
           Back to training

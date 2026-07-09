@@ -30,7 +30,7 @@ export function StartSessionForm({
   const [state, action, pending] = useActionState(startSessionAction, initial);
   const [modality, setModality] = useState<"text" | "voice">("text");
   const selectClass =
-    "w-full rounded-xl border border-neutral-300 bg-white px-3.5 py-2.5 text-sm text-neutral-900 outline-none focus:border-neutral-500";
+    "w-full rounded-lg border border-neutral-200 bg-white px-3.5 py-2.5 text-sm text-neutral-900 outline-none transition-colors focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20";
 
   return (
     <Card>
@@ -72,8 +72,8 @@ export function StartSessionForm({
                     aria-pressed={active}
                     className={`inline-flex items-center justify-center gap-2 rounded-lg border px-3.5 py-2.5 text-sm font-medium transition-colors ${
                       active
-                        ? "border-accent-600 bg-accent-50 text-accent-700"
-                        : "border-neutral-300 bg-white text-neutral-700 hover:border-neutral-400"
+                        ? "border-accent-600 bg-accent-50 text-accent-800"
+                        : "border-neutral-200 bg-white text-neutral-700 hover:border-neutral-300"
                     }`}
                   >
                     {m === "text" ? (

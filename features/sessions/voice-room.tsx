@@ -113,18 +113,21 @@ type Props = {
 // outside the "use client" boundary. The JSX below consumes them.
 
 // One mood meter: label, current value, bar, and the change since last turn.
+// The bar color reflects the AXIS meaning — trust=prof (teal), satisfaction=
+// clarity (blue), patience=problem (orange), frustration=bad (red).
 function Meter({
   label,
   value,
   delta,
   goodHigh,
+  fill,
 }: {
   label: string;
   value: number;
   delta: number | null;
   goodHigh: boolean;
+  fill: string;
 }) {
-  const fill = goodHigh ? "bg-accent-600" : "bg-amber-500";
   const improved = delta == null ? null : goodHigh ? delta > 0 : delta < 0;
   return (
     <div>
@@ -133,7 +136,7 @@ function Meter({
         <span className="flex items-center gap-1.5 tabular-nums">
           <span className="font-semibold text-neutral-900">{value}</span>
           {delta != null && delta !== 0 && (
-            <span className={improved ? "text-emerald-600" : "text-amber-600"}>
+            <span className={improved ? "text-good" : "text-warn"}>
               {delta > 0 ? `+${delta}` : delta}
             </span>
           )}
@@ -148,6 +151,15 @@ function Meter({
     </div>
   );
 }
+
+// Bar color per mood axis — kept in sync with the four competency hues so
+// the live meters read the same as the dashboard rows and feedback cards.
+const MOOD_FILL: Record<string, string> = {
+  trust: "bg-prof",
+  satisfaction: "bg-clarity",
+  patience: "bg-problem",
+  frustration: "bg-bad",
+};
 
 // Tiny sparkline of the wellbeing score across turns. Pure SVG, no deps.
 function Sparkline({ values }: { values: number[] }) {
@@ -181,7 +193,7 @@ function Sparkline({ values }: { values: number[] }) {
       <polyline
         points={pts}
         fill="none"
-        stroke="#4f46e5"
+        stroke="#0f766e"
         strokeWidth="2"
         strokeLinejoin="round"
         strokeLinecap="round"
@@ -232,7 +244,7 @@ function AnalyticsPanel({
           {wDelta !== 0 && (
             <span
               className={`text-xs font-medium tabular-nums ${
-                wDelta > 0 ? "text-emerald-600" : "text-amber-600"
+                wDelta > 0 ? "text-good" : "text-warn"
               }`}
             >
               {wDelta > 0 ? `+${wDelta}` : wDelta} since start
@@ -260,6 +272,7 @@ function AnalyticsPanel({
                 : null
             }
             goodHigh={axis.goodHigh}
+            fill={MOOD_FILL[axis.key] ?? "bg-accent-600"}
           />
         ))}
       </div>
@@ -465,11 +478,11 @@ function VoiceRoomInner({
 
   return (
     <div className="flex h-[calc(100dvh-100px)] flex-col md:h-dvh">
-      <header className="flex items-center justify-between border-b border-neutral-200 px-6 py-3">
+      <header className="flex items-center justify-between border-b border-neutral-200 bg-white px-6 py-3">
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-lg font-semibold">{scenarioTitle}</h1>
-            <span className="rounded-full bg-accent-50 px-2 py-0.5 text-xs font-medium text-accent-700">
+            <span className="rounded-full bg-accent-50 px-2 py-0.5 text-xs font-medium text-accent-800">
               Voice
             </span>
           </div>
@@ -479,7 +492,7 @@ function VoiceRoomInner({
           type="button"
           onClick={end}
           disabled={ending}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-300 px-3.5 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-50 disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3.5 py-2 text-sm font-medium text-bad transition-colors hover:bg-bad/10 disabled:opacity-50"
         >
           <Square size={14} aria-hidden="true" />
           {ending ? "Ending…" : "End session"}
@@ -487,21 +500,26 @@ function VoiceRoomInner({
       </header>
 
       {coachHint && (
-        <div className="border-b border-accent-100 bg-accent-50 px-6 py-2.5">
-          <span className="text-xs font-semibold tracking-wide text-accent-500 uppercase">
-            Coach
+        <div className="flex items-start gap-3 border-b border-neutral-200 bg-gradient-to-r from-accent-50 to-clarity/10 px-6 py-3">
+          <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-accent-600 text-white">
+            <Mic size={12} aria-hidden="true" />
           </span>
-          <p className="text-sm text-accent-900">{coachHint}</p>
+          <div className="leading-tight">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-accent-800">
+              Coach
+            </span>
+            <p className="text-sm text-neutral-800">{coachHint}</p>
+          </div>
         </div>
       )}
 
       {!isReady ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-6 p-6 text-center">
-          <div className="flex h-28 w-28 items-center justify-center rounded-full border-2 border-dashed border-neutral-300 text-neutral-400">
+          <div className="flex h-28 w-28 items-center justify-center rounded-full border-2 border-dashed border-neutral-200 bg-white text-accent-600 shadow-sm">
             <Mic size={34} strokeWidth={1.75} aria-hidden="true" />
           </div>
           <div className="max-w-sm">
-            <p className="font-medium text-neutral-800">
+            <p className="font-semibold text-neutral-900">
               {isConnecting ? "Connecting…" : "Ready when you are"}
             </p>
             <p className="mt-1 text-sm text-neutral-500">
@@ -513,12 +531,12 @@ function VoiceRoomInner({
             type="button"
             onClick={connect}
             disabled={isConnecting}
-            className="inline-flex items-center gap-2 rounded-lg bg-accent-600 px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-accent-700 disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-lg bg-accent-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-accent-700 disabled:opacity-50"
           >
             <Mic size={16} aria-hidden="true" />
             {isConnecting ? "Connecting…" : "Connect & talk"}
           </button>
-          {error && <p className="max-w-sm text-sm text-red-600">{error}</p>}
+          {error && <p className="max-w-sm text-sm text-bad">{error}</p>}
         </div>
       ) : (
         <>
@@ -538,10 +556,10 @@ function VoiceRoomInner({
                     <div
                       // biome-ignore lint/suspicious/noArrayIndexKey: append-only transcript — entries are never reordered or removed
                       key={`${i}-${m.role}`}
-                      className={`max-w-[80%] rounded-2xl px-3.5 py-2.5 text-sm ${
+                      className={`max-w-[80%] rounded-2xl px-3.5 py-2.5 text-sm shadow-sm ${
                         m.role === "guest"
-                          ? "self-start border border-neutral-200 bg-white text-neutral-900"
-                          : "self-end bg-neutral-900 text-white"
+                          ? "self-start rounded-bl-md border border-neutral-200 bg-white text-neutral-900"
+                          : "self-end rounded-br-md bg-accent-600 text-white"
                       }`}
                     >
                       {m.text}
@@ -559,9 +577,7 @@ function VoiceRoomInner({
           </div>
 
           {error && (
-            <p className="px-4 pb-1 text-center text-sm text-red-600">
-              {error}
-            </p>
+            <p className="px-4 pb-1 text-center text-sm text-bad">{error}</p>
           )}
 
           {/* Mic status + mute control footer. */}
@@ -581,7 +597,7 @@ function VoiceRoomInner({
             <button
               type="button"
               onClick={() => enableMic(!isMicEnabled)}
-              className="inline-flex items-center gap-2 rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-50"
+              className="inline-flex items-center gap-2 rounded-lg border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-50"
             >
               {isMicEnabled ? (
                 <MicOff size={15} aria-hidden="true" />

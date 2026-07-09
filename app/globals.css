@@ -1,7 +1,8 @@
 @import "tailwindcss";
 
-/* Light-only by design for v1. color-scheme:light also forces native form
-   controls to render light when the OS prefers dark. */
+/* Light-only for v1 (the "Atrium" surface). A dark mode — the "Signal"
+   direction — comes later as a toggle. color-scheme:light also forces native
+   form controls to render light when the OS prefers dark. */
 :root {
   color-scheme: light;
 }
@@ -10,34 +11,55 @@
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 
-  /* Warm neutral ramp (Tailwind "stone") — keeps the product black & white
-     but lends a subtle hospitality warmth vs. the default cool gray. Overriding
-     the built-in `neutral` scale re-skins every existing `*-neutral-*` class
-     across the app with no per-page churn. */
-  --color-neutral-50: #fafaf9;
-  --color-neutral-100: #f5f5f4;
-  --color-neutral-200: #e7e5e4;
-  --color-neutral-300: #d6d3d1;
-  --color-neutral-400: #a8a29e;
-  --color-neutral-500: #78716c;
-  --color-neutral-600: #57534e;
-  --color-neutral-700: #44403c;
-  --color-neutral-800: #292524;
-  --color-neutral-900: #1c1917;
-  --color-neutral-950: #0c0a09;
+  /* Neutral ramp — a cool grey with a faint blue bias (chosen, not defaulted),
+     the "Atrium" canvas. Overriding the built-in `neutral` scale re-skins every
+     existing `*-neutral-*` class across the app with no per-page churn. */
+  --color-neutral-50: #f6f7f9;
+  --color-neutral-100: #eef1f5;
+  --color-neutral-200: #e6e9ee;
+  --color-neutral-300: #d3d8e0;
+  --color-neutral-400: #98a0ac;
+  --color-neutral-500: #6b7480;
+  --color-neutral-600: #5b6270;
+  --color-neutral-700: #3f4653;
+  --color-neutral-800: #262b34;
+  --color-neutral-900: #151821;
+  --color-neutral-950: #0b0d12;
 
-  /* Accent — indigo. The single "hint of color": primary CTAs, links, active
-     nav, focus rings, the coach strip, data viz. Used sparingly on purpose. */
-  --color-accent-50: #eef2ff;
-  --color-accent-100: #e0e7ff;
-  --color-accent-200: #c7d2fe;
-  --color-accent-300: #a5b4fc;
-  --color-accent-400: #818cf8;
-  --color-accent-500: #6366f1;
-  --color-accent-600: #4f46e5;
-  --color-accent-700: #4338ca;
-  --color-accent-800: #3730a3;
-  --color-accent-900: #312e81;
+  /* Accent — teal. The brand + the single confident color: primary CTAs, links,
+     active nav, focus rings, the coach strip. Swapping this ramp re-skins every
+     existing `accent-*` class from the old indigo to teal automatically. */
+  --color-accent-50: #e6f3f0;
+  --color-accent-100: #ccece5;
+  --color-accent-200: #9bdccf;
+  --color-accent-300: #63c6b5;
+  --color-accent-400: #2ba694;
+  --color-accent-500: #12988a;
+  --color-accent-600: #0f766e;
+  --color-accent-700: #0b5f58;
+  --color-accent-800: #0a4a44;
+  --color-accent-900: #0a3c38;
+
+  /* Semantic color system (docs/architecture.md §UI). Each training competency
+     owns a hue so state reads at a glance on the dashboard, feedback, and mood
+     meters; good/warn/bad are for scores and resolvability. Kept SEPARATE from
+     the accent. Tailwind generates bg-/text-/border- utilities from these. */
+  --color-empathy: #df5891;
+  --color-clarity: #3b82c4;
+  --color-problem: #e0892b;
+  --color-prof: #12a085;
+
+  --color-good: #12a085;
+  --color-warn: #e0952b;
+  --color-bad: #e0574f;
+
+  /* Logo signature spark (also usable as a rare warm accent). */
+  --color-spark: #f6b23c;
+
+  /* Soft, layered elevation — the "funded company" depth. */
+  --shadow-card:
+    0 1px 2px rgba(16, 20, 30, 0.06), 0 8px 24px rgba(16, 20, 30, 0.06);
+  --shadow-sm: 0 1px 2px rgba(16, 20, 30, 0.06);
 }
 
 body {
@@ -48,14 +70,14 @@ body {
   text-rendering: optimizeLegibility;
 }
 
-/* Tight, modern headings (the Linear/Vercel signature). */
+/* Tight, modern headings. */
 h1,
 h2,
 h3 {
   letter-spacing: -0.02em;
 }
 
-/* Accent text selection. */
+/* Accent (teal) text selection. */
 ::selection {
   background: var(--color-accent-100);
   color: var(--color-accent-900);

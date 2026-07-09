@@ -46,7 +46,7 @@ export default function CreateWorkspacePage() {
             <select
               id="industry"
               name="industry"
-              className="w-full rounded-lg border border-neutral-300 bg-white px-3.5 py-2.5 text-sm text-neutral-900 outline-none transition-colors focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20"
+              className="w-full rounded-lg border border-neutral-200 bg-white px-3.5 py-2.5 text-sm text-neutral-900 outline-none transition-colors focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20"
               defaultValue="hotel"
             >
               <option value="hotel">Hotel / resort</option>

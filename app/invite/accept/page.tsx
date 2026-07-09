@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { LobbyeeLogo } from "@/components/logo";
-import { Button, Card } from "@/components/ui";
+import { Card } from "@/components/ui";
 import {
   acceptPendingInvitesAction,
   getPendingInvitesForCurrentUser,
 } from "@/features/team/actions";
+import { AcceptInvitesButton } from "./accept-button";
 
 // SECURITY (CSRF): this page MUST NOT mutate on GET. Previously it called
 // acceptInvitesForCurrentUser() at render time, so any cross-origin page
@@ -42,11 +43,7 @@ export default async function AcceptInvitePage() {
               )}
             </p>
             <form action={acceptPendingInvitesAction} className="mx-auto mt-2">
-              <Button type="submit">
-                {pendingCount === 1
-                  ? "Accept invitation"
-                  : "Accept all invitations"}
-              </Button>
+              <AcceptInvitesButton single={pendingCount === 1} />
             </form>
           </div>
         ) : activeWorkspace ? (

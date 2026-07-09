@@ -3,19 +3,9 @@
 // account state (pending invite → accept; member → workspace; new → onboarding).
 import type { EmailOtpType } from "@supabase/supabase-js";
 import { type NextRequest, NextResponse } from "next/server";
+import { safeNext } from "@/lib/auth/safe-next";
 import { afterAuthDestination } from "@/lib/auth/session";
 import { supabaseServer } from "@/lib/supabase/server";
-
-/** Open-redirect guard: `next` must be a same-origin relative path.
- *  Rejects absolute URLs, protocol-relative (`//evil.com`), and the
- *  backslash/userinfo tricks (`/\\evil.com`, `@evil.com`). */
-function safeNext(next: string | null): string | null {
-  if (!next) return null;
-  if (!next.startsWith("/") || next.startsWith("//") || next.includes("\\")) {
-    return null;
-  }
-  return next;
-}
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);

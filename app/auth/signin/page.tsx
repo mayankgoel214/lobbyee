@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { AuthShell } from "@/components/auth-shell";
 import { Button, FormError, FormMessage, Input, Label } from "@/components/ui";
 import {
@@ -14,11 +14,19 @@ const initial: AuthFormState = {};
 
 export default function SignInPage() {
   const [mode, setMode] = useState<"password" | "magic">("password");
+  const [linkError, setLinkError] = useState(false);
   const [pwState, pwSubmit, pwPending] = useActionState(signInAction, initial);
   const [mlState, mlSubmit, mlPending] = useActionState(
     magicLinkAction,
     initial,
   );
+
+  // The email-confirm route sends failed/expired links back here with an error
+  // flag. Read it on the client so the user learns why nothing happened.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("error") === "link-expired-or-invalid") setLinkError(true);
+  }, []);
 
   return (
     <AuthShell>
@@ -30,6 +38,14 @@ export default function SignInPage() {
           Staff usually sign in with a magic link, no password needed.
         </p>
       </div>
+      {linkError ? (
+        <div className="mb-4">
+          <FormError>
+            That link has expired or was already used. Sign in below, or request
+            a new magic link.
+          </FormError>
+        </div>
+      ) : null}
       {mode === "password" ? (
         <form action={pwSubmit} className="flex flex-col gap-4">
           <div>

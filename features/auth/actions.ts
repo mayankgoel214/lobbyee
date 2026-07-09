@@ -80,6 +80,17 @@ export async function signInAction(
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
+  // Rate limit password sign-in per IP to blunt credential-stuffing / brute
+  // force. Supabase has its own floor, but this is the same door the sign-up
+  // path already guards.
+  const ip = await clientIp();
+  const limit = await rateLimit(`signin:${ip}`, {
+    max: 10,
+    windowSeconds: 900,
+  });
+  if (!limit.ok) {
+    return { error: "Too many sign-in attempts. Try again in a few minutes." };
+  }
   const supabase = await supabaseServer();
   const { data, error } = await supabase.auth.signInWithPassword(parsed.data);
   if (error) return { error: "Wrong email or password." };
@@ -93,6 +104,13 @@ export async function magicLinkAction(
   const parsed = emailSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+  // Rate limit per IP so this endpoint can't be used to spam a target inbox
+  // with confirmation mails.
+  const ip = await clientIp();
+  const limit = await rateLimit(`magic:${ip}`, { max: 5, windowSeconds: 900 });
+  if (!limit.ok) {
+    return { error: "Too many requests. Try again in a few minutes." };
   }
   const supabase = await supabaseServer();
   const { error } = await supabase.auth.signInWithOtp({

@@ -136,9 +136,16 @@ export function ChatSession({
 
   function end() {
     if (!window.confirm("End this training session?")) return;
+    setError(null);
     setEnding(true);
     startTransition(async () => {
-      await endSessionAction({ sessionId });
+      const result = await endSessionAction({ sessionId });
+      if (result?.error) {
+        // Surface the failure instead of leaving the button looking stuck.
+        setError(result.error);
+        setEnding(false);
+        return;
+      }
       router.refresh();
     });
   }

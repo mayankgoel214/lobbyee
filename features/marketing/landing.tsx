@@ -479,33 +479,19 @@ export function Landing() {
                 <li>
                   <a href="#faq">FAQ</a>
                 </li>
-              </ul>
-            </div>
-            <div>
-              <h4>Company</h4>
-              <ul>
                 <li>
-                  <a href="#about">About</a>
-                </li>
-                <li>
-                  <a href="#careers">Careers</a>
-                </li>
-                <li>
-                  <a href="#contact">Contact</a>
+                  <Link href="/demo">Watch the demo</Link>
                 </li>
               </ul>
             </div>
             <div>
-              <h4>Legal</h4>
+              <h4>Get started</h4>
               <ul>
                 <li>
-                  <a href="#privacy">Privacy</a>
+                  <Link href="/auth/signup">Create an account</Link>
                 </li>
                 <li>
-                  <a href="#terms">Terms</a>
-                </li>
-                <li>
-                  <a href="#security">Security</a>
+                  <Link href="/auth/signin">Sign in</Link>
                 </li>
               </ul>
             </div>

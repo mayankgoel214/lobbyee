@@ -114,9 +114,9 @@ export function Landing() {
               <Link href="/auth/signup" className="btn primary">
                 Start free — 10 sessions
               </Link>
-              <a href="#how" className="btn ghost">
+              <Link href="/demo" className="btn ghost">
                 Watch a 60-sec demo
-              </a>
+              </Link>
             </div>
             <p className="trust">
               No credit card · Built for hotels, restaurants &amp; hospitality

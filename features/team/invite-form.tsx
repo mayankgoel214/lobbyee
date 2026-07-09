@@ -24,7 +24,7 @@ export function InviteForm({ slug }: { slug: string }) {
             rows={3}
             required
             placeholder={"daniel@yourhotel.com\nsofia@yourhotel.com"}
-            className="w-full rounded-lg border border-neutral-300 bg-white px-3.5 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none transition-colors focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20"
+            className="w-full rounded-lg border border-neutral-200 bg-white px-3.5 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none transition-colors focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20"
           />
         </div>
         <FormError>{state.error}</FormError>
@@ -37,14 +37,14 @@ export function InviteForm({ slug }: { slug: string }) {
                     size={16}
                     strokeWidth={2}
                     aria-hidden="true"
-                    className="text-emerald-600"
+                    className="text-good"
                   />
                 ) : (
                   <X
                     size={16}
                     strokeWidth={2}
                     aria-hidden="true"
-                    className="text-red-600"
+                    className="text-bad"
                   />
                 )}
                 <span className="text-neutral-800">{r.email}</span>

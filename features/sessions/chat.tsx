@@ -1,6 +1,6 @@
 "use client";
 
-import { Square } from "lucide-react";
+import { Send, Sparkles, Square } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { endSessionAction, sendTurnAction } from "@/features/sessions/actions";
@@ -16,8 +16,32 @@ function moodWord(m: MoodVector): string {
   return "guarded";
 }
 
+function moodTone(m: MoodVector): "bad" | "warn" | "good" | "neutral" {
+  if (m.frustration >= 75) return "bad";
+  if (m.frustration >= 55) return "warn";
+  if (m.satisfaction >= 65 && m.trust >= 55) return "good";
+  return "neutral";
+}
+
 function MoodStrip({ mood }: { mood: MoodVector }) {
   const filled = Math.max(1, Math.ceil(mood.frustration / 25));
+  const tone = moodTone(mood);
+  const filledClass =
+    tone === "bad"
+      ? "bg-bad"
+      : tone === "warn"
+        ? "bg-warn"
+        : tone === "good"
+          ? "bg-good"
+          : "bg-neutral-500";
+  const label =
+    tone === "bad"
+      ? "text-bad"
+      : tone === "warn"
+        ? "text-warn"
+        : tone === "good"
+          ? "text-good"
+          : "text-neutral-700";
   return (
     <div className="flex items-center gap-3 border-y border-neutral-200 bg-neutral-50 px-4 py-2">
       <span className="text-[10px] font-semibold tracking-wide text-neutral-500 uppercase">
@@ -28,27 +52,33 @@ function MoodStrip({ mood }: { mood: MoodVector }) {
           <span
             key={i}
             className={`h-1.5 w-6 rounded-full transition-colors duration-500 ${
-              i <= filled ? "bg-neutral-500" : "bg-neutral-200"
+              i <= filled ? filledClass : "bg-neutral-200"
             }`}
           />
         ))}
       </div>
-      <span className="text-xs text-neutral-700">{moodWord(mood)}</span>
+      <span className={`text-xs font-medium ${label}`}>{moodWord(mood)}</span>
     </div>
   );
 }
 
 // Always-on coach strip (§5g): a persistent one-line nudge that updates each
-// turn. Visually distinct from guest/staff bubbles so it never reads as part
-// of the conversation. Hidden until the first hint lands.
+// turn. A soft teal→blue gradient makes it read as coach-voice — visually
+// distinct from guest/staff bubbles so it never joins the conversation.
+// Hidden until the first hint lands.
 function CoachStrip({ hint }: { hint: string | null }) {
   if (!hint) return null;
   return (
-    <div className="flex items-start gap-2 border-b border-accent-100 bg-accent-50 px-4 py-2">
-      <span className="mt-px text-[10px] font-semibold tracking-wide text-accent-500 uppercase">
-        Coach
+    <div className="flex items-start gap-2.5 border-b border-neutral-200 bg-gradient-to-r from-accent-50 to-clarity/10 px-4 py-2.5">
+      <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-accent-600 text-white">
+        <Sparkles size={11} aria-hidden="true" />
       </span>
-      <span className="text-xs text-accent-900">{hint}</span>
+      <span className="flex flex-col leading-tight">
+        <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-accent-800">
+          Coach
+        </span>
+        <span className="text-xs text-neutral-800">{hint}</span>
+      </span>
     </div>
   );
 }
@@ -124,7 +154,7 @@ export function ChatSession({
           type="button"
           onClick={end}
           disabled={ending}
-          className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900 disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm text-bad transition-colors hover:bg-bad/10 disabled:opacity-50"
         >
           <Square size={13} aria-hidden="true" />
           End session
@@ -134,23 +164,23 @@ export function ChatSession({
       <MoodStrip mood={mood} />
       <CoachStrip hint={hint} />
 
-      <div className="flex-1 overflow-y-auto px-4 py-4">
+      <div className="flex-1 overflow-y-auto bg-neutral-50 px-4 py-4">
         <div className="flex flex-col gap-3">
           {messages.map((m, i) => (
             <div
               // biome-ignore lint/suspicious/noArrayIndexKey: append-only optimistic list — entries are never reordered or removed
               key={`${i}-${m.role}`}
-              className={`max-w-[80%] rounded-2xl px-3.5 py-2.5 text-sm ${
+              className={`max-w-[80%] rounded-2xl px-3.5 py-2.5 text-sm shadow-sm ${
                 m.role === "guest"
-                  ? "self-start border border-neutral-200 bg-white text-neutral-900"
-                  : "self-end bg-neutral-900 text-white"
+                  ? "self-start rounded-bl-md border border-neutral-200 bg-white text-neutral-900"
+                  : "self-end rounded-br-md bg-accent-600 text-white"
               }`}
             >
               {m.text}
             </div>
           ))}
           {pending && !ending && (
-            <div className="self-start rounded-2xl border border-neutral-200 bg-white px-3.5 py-2.5 text-sm text-neutral-400">
+            <div className="self-start rounded-2xl rounded-bl-md border border-neutral-200 bg-white px-3.5 py-2.5 text-sm text-neutral-400 shadow-sm">
               {personaName} is replying…
             </div>
           )}
@@ -159,7 +189,7 @@ export function ChatSession({
       </div>
 
       {error && (
-        <p className="px-4 pb-1 text-sm text-red-600" role="alert">
+        <p className="px-4 pb-1 text-sm text-bad" role="alert">
           {error}
         </p>
       )}
@@ -176,15 +206,16 @@ export function ChatSession({
           }}
           placeholder="Type your reply…"
           disabled={pending || ending}
-          className="flex-1 rounded-lg border border-neutral-300 bg-white px-3.5 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none transition-colors focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20"
+          className="flex-1 rounded-lg border border-neutral-200 bg-neutral-50 px-3.5 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none transition-colors focus:border-accent-500 focus:bg-white focus:ring-2 focus:ring-accent-500/20"
         />
         <button
           type="button"
           onClick={send}
           disabled={pending || ending || !input.trim()}
-          className="rounded-lg bg-accent-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-accent-700 disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-accent-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
           Send
+          <Send size={13} aria-hidden="true" />
         </button>
       </div>
     </div>

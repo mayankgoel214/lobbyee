@@ -18,11 +18,15 @@ export default async function WorkspaceLayout({
   const { workspace, membership } = await requireMembership(slug);
   const admin = isAdmin(membership.role);
 
+  // Initial for the workspace footer avatar chip. Falls back to "W" so the
+  // gradient dot never renders empty.
+  const workspaceInitial = workspace.name.trim().charAt(0).toUpperCase() || "W";
+
   return (
     <div className="flex min-h-screen bg-neutral-50">
       {/* Desktop sidebar — fixed, full-height. */}
       <aside className="fixed inset-y-0 left-0 hidden w-60 flex-col border-r border-neutral-200 bg-white md:flex">
-        <div className="px-4 py-4">
+        <div className="px-5 py-5">
           <Link href={`/w/${slug}`} className="inline-flex">
             <LobbyeeLogo />
           </Link>
@@ -31,12 +35,20 @@ export default async function WorkspaceLayout({
           <SidebarNav slug={slug} admin={admin} />
         </div>
         <div className="border-t border-neutral-200 p-3">
-          <div className="px-2 pb-2">
-            <div className="truncate text-sm font-medium text-neutral-800">
-              {workspace.name}
-            </div>
-            <div className="text-xs text-neutral-400 capitalize">
-              {membership.role}
+          <div className="flex items-center gap-2.5 px-2 pb-3">
+            <span
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-accent-600 to-clarity text-xs font-semibold text-white"
+              aria-hidden="true"
+            >
+              {workspaceInitial}
+            </span>
+            <div className="min-w-0 leading-tight">
+              <div className="truncate text-sm font-semibold text-neutral-900">
+                {workspace.name}
+              </div>
+              <div className="text-xs text-neutral-400 capitalize">
+                {membership.role}
+              </div>
             </div>
           </div>
           <form action={signOutAction}>

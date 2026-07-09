@@ -32,8 +32,8 @@ export default async function TrainPage({
   ]);
 
   return (
-    <main className="mx-auto max-w-xl p-6">
-      <h1 className="mb-1 text-xl font-semibold text-neutral-900">
+    <main className="mx-auto max-w-xl p-6 md:p-8">
+      <h1 className="mb-1 text-2xl font-semibold tracking-tight text-neutral-900">
         Practice a conversation
       </h1>
       <p className="mb-6 text-sm text-neutral-500">
@@ -68,7 +68,7 @@ export default async function TrainPage({
 
       {recent.length > 0 && (
         <section className="mt-8">
-          <h2 className="mb-3 text-xs font-medium text-neutral-500">
+          <h2 className="mb-3 text-[10px] font-semibold uppercase tracking-[0.1em] text-neutral-400">
             Your recent sessions
           </h2>
           <div className="flex flex-col gap-2">
@@ -76,7 +76,7 @@ export default async function TrainPage({
               <Link
                 key={s.id}
                 href={`/w/${slug}/sessions/${s.id}`}
-                className="flex items-center justify-between rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm transition-colors hover:border-neutral-300"
+                className="flex items-center justify-between rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm shadow-sm transition-colors hover:border-neutral-300"
               >
                 <span className="text-neutral-900">
                   {s.scenario.title}{" "}

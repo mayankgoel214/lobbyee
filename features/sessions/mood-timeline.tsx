@@ -34,7 +34,7 @@ export function MoodTimeline({ snapshots }: { snapshots: MoodVector[] }) {
   return (
     <section
       aria-label="Guest mood over the session"
-      className="mb-5 rounded-2xl border border-neutral-200 bg-white p-4"
+      className="mb-5 rounded-xl border border-neutral-200 bg-white p-4 shadow-sm"
     >
       <div className="mb-2 flex items-center justify-between">
         <h2 className="text-sm font-semibold text-neutral-900">
@@ -42,11 +42,11 @@ export function MoodTimeline({ snapshots }: { snapshots: MoodVector[] }) {
         </h2>
         <div className="flex items-center gap-3 text-[11px] text-neutral-500">
           <span className="flex items-center gap-1.5">
-            <span className="h-1.5 w-3 rounded-full bg-neutral-500" />
+            <span className="h-1.5 w-3 rounded-full bg-bad" />
             frustration
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="h-1.5 w-3 rounded-full bg-accent-600" />
+            <span className="h-1.5 w-3 rounded-full bg-prof" />
             trust
           </span>
         </div>
@@ -62,14 +62,14 @@ export function MoodTimeline({ snapshots }: { snapshots: MoodVector[] }) {
           y1={H / 2}
           x2={W - PAD}
           y2={H / 2}
-          stroke="#e7e5e4"
+          stroke="#e6e9ee"
           strokeDasharray="3 3"
           strokeWidth="1"
         />
         <polyline
           points={points(frustration)}
           fill="none"
-          stroke="#78716c"
+          stroke="#e0574f"
           strokeWidth="2"
           strokeLinejoin="round"
           strokeLinecap="round"
@@ -77,7 +77,7 @@ export function MoodTimeline({ snapshots }: { snapshots: MoodVector[] }) {
         <polyline
           points={points(trust)}
           fill="none"
-          stroke="#4f46e5"
+          stroke="#12a085"
           strokeWidth="2"
           strokeLinejoin="round"
           strokeLinecap="round"

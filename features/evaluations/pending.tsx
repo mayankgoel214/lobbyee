@@ -52,7 +52,7 @@ export function PendingFeedback() {
   }, [router]);
 
   return (
-    <div className="mb-5 rounded-2xl border border-neutral-200 bg-neutral-50 p-4 text-sm text-neutral-700">
+    <div className="mb-5 rounded-xl border border-accent-100 bg-accent-50/60 p-4 text-sm text-accent-900 shadow-sm">
       {waitedTooLong ? (
         <>
           Your coaching feedback is taking longer than usual. It will retry on

@@ -11,6 +11,7 @@ import { billingConfigured } from "@/lib/stripe/client";
 
 function UsageMeter({ used, cap }: { used: number; cap: number }) {
   const pct = Math.min(100, Math.round((used / Math.max(1, cap)) * 100));
+  const fill = pct >= 100 ? "bg-bad" : pct >= 90 ? "bg-warn" : "bg-accent-600";
   return (
     <div>
       <div className="mb-2 flex items-baseline justify-between text-sm">
@@ -19,9 +20,9 @@ function UsageMeter({ used, cap }: { used: number; cap: number }) {
         </span>
         <span className="text-neutral-500 tabular-nums">{pct}%</span>
       </div>
-      <div className="h-2 overflow-hidden rounded-full bg-neutral-200">
+      <div className="h-2 overflow-hidden rounded-full bg-neutral-100">
         <div
-          className={`h-full rounded-full transition-all ${pct >= 90 ? "bg-amber-500" : "bg-accent-600"}`}
+          className={`h-full rounded-full transition-all ${fill}`}
           style={{ width: `${pct}%` }}
         />
       </div>
@@ -55,23 +56,25 @@ export default async function BillingPage({
   });
 
   return (
-    <main className="mx-auto max-w-xl p-6">
-      <h1 className="text-lg font-semibold text-neutral-900">Billing</h1>
+    <main className="mx-auto max-w-xl p-6 md:p-8">
+      <h1 className="text-2xl font-semibold tracking-tight text-neutral-900">
+        Billing
+      </h1>
       <p className="mb-6 mt-0.5 text-sm text-neutral-500">{workspace.name}</p>
 
       {checkout === "success" && (
-        <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
+        <div className="mb-4 rounded-xl border border-good/30 bg-good/10 p-4 text-sm text-good shadow-sm">
           You&apos;re subscribed! It can take a few seconds for the plan below
           to update while Stripe confirms the payment.
         </div>
       )}
       {checkout === "canceled" && (
-        <div className="mb-4 rounded-2xl border border-neutral-200 bg-neutral-50 p-4 text-sm text-neutral-600">
+        <div className="mb-4 rounded-xl border border-neutral-200 bg-neutral-50 p-4 text-sm text-neutral-600">
           Checkout canceled — no charge was made.
         </div>
       )}
       {subscription?.stripeStatus === "past_due" && (
-        <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+        <div className="mb-4 rounded-xl border border-warn/30 bg-warn/10 p-4 text-sm text-[#a76a12] shadow-sm">
           Your last payment didn&apos;t go through. Stripe will retry — update
           your card in &ldquo;Manage billing&rdquo; to keep your plan active.
         </div>

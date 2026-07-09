@@ -18,7 +18,7 @@ import {
 const initial: ScenarioFormState = {};
 
 const textareaClass =
-  "w-full rounded-lg border border-neutral-300 bg-white px-3.5 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none transition-colors focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20";
+  "w-full rounded-lg border border-neutral-200 bg-white px-3.5 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none transition-colors focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20";
 
 export default function NewScenarioPage({
   params,
@@ -226,7 +226,7 @@ export default function NewScenarioPage({
             </div>
 
             {suggestError ? (
-              <p className="mt-2 text-xs text-amber-700">{suggestError}</p>
+              <p className="mt-2 text-xs text-warn">{suggestError}</p>
             ) : null}
           </div>
 

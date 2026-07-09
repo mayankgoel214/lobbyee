@@ -3,6 +3,12 @@
 // nothing interactive here except the pending poller (see pending.tsx).
 import { ArrowDown } from "lucide-react";
 import { Badge, Card } from "@/components/ui";
+import {
+  COMPETENCY_BG,
+  COMPETENCY_BORDER,
+  COMPETENCY_TEXT,
+  scoreTone,
+} from "@/features/evaluations/colors";
 import { COMPETENCY_LABELS, type CompetencyKey } from "@/prompts/evaluator";
 
 export type EvidenceView = {
@@ -28,11 +34,11 @@ const COMPETENCY_ORDER: CompetencyKey[] = [
 ];
 
 function ScoreBadge({ score }: { score: number }) {
-  // Accent indigo for solid scores, neutral for the rest. Keeps the eye on
-  // areas where the trainee did well without screaming for attention.
-  const variant = score >= 4 ? "accent" : "neutral";
+  // good/warn/bad reads the score the same way across the app so a 4.0
+  // always looks like a win and a 2.something always reads as a miss.
+  const tone = scoreTone(score);
   return (
-    <Badge variant={variant} className="tabular-nums">
+    <Badge variant={tone} className="tabular-nums">
       {score}/5
     </Badge>
   );
@@ -40,9 +46,9 @@ function ScoreBadge({ score }: { score: number }) {
 
 function KindBadge({ kind }: { kind: EvidenceView["kind"] }) {
   return kind === "strength" ? (
-    <Badge variant="success">Strength</Badge>
+    <Badge variant="good">Strength</Badge>
   ) : (
-    <Badge variant="warning">Missed opportunity</Badge>
+    <Badge variant="warn">Missed opportunity</Badge>
   );
 }
 
@@ -52,8 +58,8 @@ export function FeedbackPanel({ evaluation }: { evaluation: EvaluationView }) {
       aria-label="Coaching feedback"
       className="mb-6 flex flex-col gap-3"
     >
-      <Card className="border-neutral-200">
-        <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-accent-600">
+      <Card className="border-accent-100 bg-accent-50/60">
+        <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-accent-700">
           Coach&rsquo;s summary
         </p>
         <p className="text-sm leading-relaxed text-neutral-800">
@@ -66,10 +72,16 @@ export function FeedbackPanel({ evaluation }: { evaluation: EvaluationView }) {
           (e) => e.competency === key,
         );
         return (
-          <Card key={key}>
+          <Card key={key} className="pt-4">
             <div className="mb-3 flex items-center justify-between gap-3">
-              <h2 className="text-sm font-semibold text-neutral-900">
-                {COMPETENCY_LABELS[key]}
+              <h2 className="flex items-center gap-2 text-sm font-semibold text-neutral-900">
+                <span
+                  className={`h-2.5 w-2.5 rounded-full ${COMPETENCY_BG[key]}`}
+                  aria-hidden="true"
+                />
+                <span className={COMPETENCY_TEXT[key]}>
+                  {COMPETENCY_LABELS[key]}
+                </span>
               </h2>
               <ScoreBadge score={score} />
             </div>
@@ -83,7 +95,9 @@ export function FeedbackPanel({ evaluation }: { evaluation: EvaluationView }) {
                     <div className="mb-2 flex items-center gap-2">
                       <KindBadge kind={e.kind} />
                     </div>
-                    <blockquote className="border-l-2 border-accent-600 pl-4 font-serif text-base italic leading-relaxed text-neutral-800">
+                    <blockquote
+                      className={`border-l-[3px] pl-4 font-serif text-base italic leading-relaxed text-neutral-800 ${COMPETENCY_BORDER[key]}`}
+                    >
                       &ldquo;{e.quote}&rdquo;
                     </blockquote>
                     <p className="mt-2 text-sm leading-relaxed text-neutral-600">
@@ -91,7 +105,7 @@ export function FeedbackPanel({ evaluation }: { evaluation: EvaluationView }) {
                     </p>
                     <a
                       href={`#m-${e.messageId}`}
-                      className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-accent-600 transition-colors hover:text-accent-700"
+                      className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-accent-700 transition-colors hover:text-accent-800"
                     >
                       Jump to moment
                       <ArrowDown size={16} strokeWidth={2} aria-hidden="true" />

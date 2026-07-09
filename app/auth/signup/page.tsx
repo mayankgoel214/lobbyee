@@ -2,18 +2,12 @@
 
 import Link from "next/link";
 import { useActionState } from "react";
+import { AuthBrandPanel } from "@/components/auth-brand-panel";
 import { LobbyeeLogo } from "@/components/logo";
 import { Button, FormError, FormMessage, Input, Label } from "@/components/ui";
 import { type AuthFormState, signUpAction } from "@/features/auth/actions";
 
 const initial: AuthFormState = {};
-
-const COMPETENCY_WORDS = [
-  "empathy",
-  "clarity",
-  "problem solving",
-  "professionalism",
-];
 
 export default function SignUpPage() {
   const [state, action, pending] = useActionState(signUpAction, initial);
@@ -85,31 +79,7 @@ export default function SignUpPage() {
         </div>
       </div>
 
-      {/* Brand panel — ink base with a teal gradient wash. Hidden on mobile. */}
-      <aside
-        className="relative hidden flex-col justify-between overflow-hidden bg-neutral-900 px-12 py-12 text-white md:flex"
-        aria-hidden="true"
-      >
-        <div
-          className="pointer-events-none absolute inset-0 bg-gradient-to-br from-accent-700/70 via-neutral-900 to-clarity/40"
-          aria-hidden="true"
-        />
-        <div className="relative z-10">
-          <LobbyeeLogo tone="light" markSize={32} />
-        </div>
-        <div className="relative z-10">
-          <p className="font-serif text-3xl leading-snug tracking-tight text-white">
-            Practice every difficult guest,
-            <br />
-            before it&rsquo;s real.
-          </p>
-          <ul className="mt-10 flex flex-wrap gap-x-6 gap-y-2 text-sm text-white/60">
-            {COMPETENCY_WORDS.map((w) => (
-              <li key={w}>{w}</li>
-            ))}
-          </ul>
-        </div>
-      </aside>
+      <AuthBrandPanel />
     </main>
   );
 }

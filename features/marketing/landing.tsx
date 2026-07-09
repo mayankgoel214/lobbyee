@@ -682,7 +682,7 @@ const styles = /* css */ `
 .landing * { box-sizing: border-box; }
 
 /* -------- Hero stage -------- */
-.landing .stage { position: relative; min-height: 100vh; overflow: hidden; isolation: isolate; }
+.landing .stage { position: relative; overflow: hidden; isolation: isolate; }
 .landing .glow { position: absolute; border-radius: 50%; filter: blur(110px); opacity: 0; z-index: 0; pointer-events: none; }
 /* g1 is the dominant teal wash sitting behind the headline area. Made large
    and generous so the hero reads as a deliberate green, not a faint tint. */
@@ -716,7 +716,7 @@ const styles = /* css */ `
 }
 
 /* -------- Hero content -------- */
-.landing .hero { position: relative; z-index: 2; max-width: 1160px; margin: 0 auto; padding: 30px 28px 80px; display: grid; grid-template-columns: 1.05fr .95fr; gap: 48px; align-items: center; }
+.landing .hero { position: relative; z-index: 2; max-width: 1160px; margin: 0 auto; padding: 56px 28px 104px; display: grid; grid-template-columns: 1.05fr .95fr; gap: 48px; align-items: center; }
 @media (max-width: 880px) { .landing .hero { grid-template-columns: 1fr; gap: 36px; padding-bottom: 56px; } }
 .landing h1 { font-family: var(--font-display), var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif; font-size: clamp(38px, 5.4vw, 64px); line-height: 1.04; letter-spacing: -0.028em; margin: 0 0 22px; font-weight: 620; }
 .landing h1 .ln { display: block; overflow: hidden; }
@@ -928,8 +928,8 @@ const styles = /* css */ `
 .landing .faq-item summary:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; border-radius: 10px; }
 
 /* -------- CTA band -------- */
-.landing .cta-band { background: var(--color-neutral-900, #151821); color: #fff; padding: 96px 0; text-align: center; position: relative; overflow: hidden; }
-.landing .cta-band::before { content: ""; position: absolute; inset: 0; background: radial-gradient(600px 300px at 50% 0%, rgba(18,163,148,.28), transparent 70%); }
+.landing .cta-band { background: #0b0f14; color: #fff; padding: 96px 0; text-align: center; position: relative; overflow: hidden; border-top: 1px solid rgba(20,184,166,.14); }
+.landing .cta-band::before { content: ""; position: absolute; inset: 0; background: radial-gradient(1100px 460px at 50% -30%, rgba(20,184,166,.20), transparent 62%); }
 .landing .cta-inner { position: relative; }
 .landing .cta-band h2 { color: #fff; margin-bottom: 12px; }
 .landing .cta-band p { color: rgba(255,255,255,.72); font-size: 17px; margin: 0 0 26px; }

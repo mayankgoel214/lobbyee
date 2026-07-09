@@ -2,11 +2,11 @@
 
 import {
   ClipboardList,
-  CreditCard,
   History,
   LayoutDashboard,
   type LucideIcon,
   MessagesSquare,
+  Settings,
   Users,
   UsersRound,
 } from "lucide-react";
@@ -63,10 +63,9 @@ export function SidebarNav({
         group: "workspace" as const,
       },
       {
-        label: "Billing",
-        href: `/w/${slug}/billing`,
-        icon: CreditCard,
-        adminOnly: true,
+        label: "Settings",
+        href: `/w/${slug}/settings`,
+        icon: Settings,
         group: "workspace" as const,
       },
     ] satisfies Item[]

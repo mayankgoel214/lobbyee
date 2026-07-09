@@ -68,8 +68,8 @@ export async function startCheckoutAction(
       client_reference_id: workspace.id,
       line_items: [{ price: priceId, quantity: 1 }],
       subscription_data: { metadata: { workspaceId: workspace.id } },
-      success_url: `${siteUrl()}/w/${slug}/billing?checkout=success`,
-      cancel_url: `${siteUrl()}/w/${slug}/billing?checkout=canceled`,
+      success_url: `${siteUrl()}/w/${slug}/settings/billing?checkout=success`,
+      cancel_url: `${siteUrl()}/w/${slug}/settings/billing?checkout=canceled`,
     });
     checkoutUrl = session.url;
   } catch (e) {
@@ -96,7 +96,7 @@ export async function openPortalAction(
   try {
     const session = await stripe().billingPortal.sessions.create({
       customer: workspace.stripeCustomerId,
-      return_url: `${siteUrl()}/w/${slug}/billing`,
+      return_url: `${siteUrl()}/w/${slug}/settings/billing`,
     });
     portalUrl = session.url;
   } catch (e) {

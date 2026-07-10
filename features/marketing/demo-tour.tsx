@@ -394,7 +394,11 @@ function formatTime(ms: number) {
 
 // ---------------- Component ----------------
 
-export function DemoTour() {
+// When `embedded` is true the outer page chrome (header, hero, below-frame
+// CTAs) is suppressed so the demo can live inside DemoShell alongside the
+// voice demo. The player frame, controls, caption, and reduced-motion notice
+// all still render.
+export function DemoTour({ embedded = false }: { embedded?: boolean } = {}) {
   const [state, setState] = useState<DemoState>(INITIAL_STATE);
   const [elapsedMs, setElapsedMs] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -528,36 +532,54 @@ export function DemoTour() {
     state.composerStartMs !== null &&
     elapsedMs < state.composerStartMs + state.composerDurationMs + 300;
 
+  const outerHeader = !embedded ? (
+    <header className="dt-header">
+      <div className="dt-header-inner">
+        <Link href="/" className="dt-brand" aria-label="Lobbyee home">
+          <LobbyeeLogo markSize={26} />
+        </Link>
+        <nav className="dt-header-nav" aria-label="Demo header">
+          <Link href="/" className="dt-back">
+            <span aria-hidden>←</span> Back to home
+          </Link>
+          <Link href="/auth/signup" className="dt-cta">
+            Start free
+          </Link>
+        </nav>
+      </div>
+    </header>
+  ) : null;
+
+  const outerIntro = !embedded ? (
+    <div className="dt-intro">
+      <span className="dt-kicker">A 60-second tour</span>
+      <h1>Watch Lobbyee run a training session.</h1>
+      <p>
+        One synthetic pointer, one hard conversation, one scored report. No
+        sign-up needed to watch. Press play any time.
+      </p>
+    </div>
+  ) : null;
+
+  const outerBelow = !embedded ? (
+    <div className="dt-below">
+      <Link href="/auth/signup" className="dt-below-cta">
+        Start free
+      </Link>
+      <Link href="/" className="dt-below-ghost">
+        Back to the homepage
+      </Link>
+    </div>
+  ) : null;
+
   return (
-    <div className="demo-tour">
+    <div className={embedded ? "demo-tour dt-embedded" : "demo-tour"}>
       <style>{styles}</style>
 
-      {/* Header */}
-      <header className="dt-header">
-        <div className="dt-header-inner">
-          <Link href="/" className="dt-brand" aria-label="Lobbyee home">
-            <LobbyeeLogo markSize={26} />
-          </Link>
-          <nav className="dt-header-nav" aria-label="Demo header">
-            <Link href="/" className="dt-back">
-              <span aria-hidden>←</span> Back to home
-            </Link>
-            <Link href="/auth/signup" className="dt-cta">
-              Start free
-            </Link>
-          </nav>
-        </div>
-      </header>
+      {outerHeader}
 
       <main className="dt-main">
-        <div className="dt-intro">
-          <span className="dt-kicker">A 60-second tour</span>
-          <h1>Watch Lobbyee run a training session.</h1>
-          <p>
-            One synthetic pointer, one hard conversation, one scored report. No
-            sign-up needed to watch. Press play any time.
-          </p>
-        </div>
+        {outerIntro}
 
         {/* Player frame */}
         <section className="dt-frame" aria-label="Product demo, visual only">
@@ -798,15 +820,8 @@ export function DemoTour() {
           </div>
         )}
 
-        {/* Below-frame CTA — same-page conversion path */}
-        <div className="dt-below">
-          <Link href="/auth/signup" className="dt-below-cta">
-            Start free
-          </Link>
-          <Link href="/" className="dt-below-ghost">
-            Back to the homepage
-          </Link>
-        </div>
+        {/* Below-frame CTA — same-page conversion path (suppressed when embedded) */}
+        {outerBelow}
       </main>
     </div>
   );
@@ -1261,6 +1276,16 @@ const styles = /* css */ `
   overflow-x: hidden;
 }
 .demo-tour * { box-sizing: border-box; }
+
+/* Embedded mode: DemoShell owns the outer chrome; strip our own. */
+.demo-tour.dt-embedded {
+  background: transparent;
+  min-height: 0;
+}
+.demo-tour.dt-embedded .dt-main {
+  padding: 0;
+  max-width: none;
+}
 
 /* Header */
 .demo-tour .dt-header {

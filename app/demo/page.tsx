@@ -6,10 +6,10 @@
 // simplified, on-brand screens inline so nothing here can leak real data.
 
 import type { Metadata } from "next";
-import { DemoTour } from "@/features/marketing/demo-tour";
+import { DemoShell } from "@/features/marketing/demo-shell";
 
 const description =
-  "A 60-second walkthrough of Lobbyee: pick a guest and a situation, practice the hard conversation, get a coaching report scored on empathy, clarity, problem-solving, and professionalism.";
+  "Hear Lobbyee run a hard front-desk call, with real spoken audio on both sides in the browser. Then get a coaching report scored on empathy, clarity, problem-solving, and professionalism.";
 
 export const metadata: Metadata = {
   title: "See Lobbyee in action",
@@ -28,5 +28,5 @@ export const metadata: Metadata = {
 };
 
 export default function DemoPage() {
-  return <DemoTour />;
+  return <DemoShell />;
 }

@@ -884,7 +884,7 @@ function TrainScene({
             <div className="dt-crumb">Workspace / Train</div>
             <h2 className="dt-h">Start a training session</h2>
           </div>
-          <div className="dt-topbar-pill">3 of 10 sessions used</div>
+          <div className="dt-topbar-pill">2 of 5 sessions used</div>
         </div>
         <div className="dt-form">
           <div className="dt-field">
@@ -1238,7 +1238,9 @@ function OutroScene() {
       <div className="dt-outro-card">
         <LobbyeeLogo markSize={34} />
         <h3>Train your team on the guests that cost you reviews.</h3>
-        <p>Ten free sessions, no card. Five minutes to your first report.</p>
+        <p>
+          Five free sessions, no card. Your first coaching report in minutes.
+        </p>
         <Link href="/auth/signup" className="dt-outro-cta">
           Start free
         </Link>

@@ -374,7 +374,7 @@ export function Landing() {
                 <span className="price-per">no card required</span>
               </div>
               <ul className="price-list">
-                <li>10 practice sessions total</li>
+                <li>5 practice sessions total</li>
                 <li>All 15 built-in scenarios</li>
                 <li>Coaching report on every session</li>
                 <li>Text mode</li>
@@ -439,8 +439,8 @@ export function Landing() {
         <div className="container cta-inner">
           <h2>Ready to train your team?</h2>
           <p>
-            Start with 10 free sessions today. No card. Five minutes to your
-            first coaching report.
+            Start with 5 free sessions today. No card. Your first coaching
+            report in minutes.
           </p>
           <div className="actions center">
             <Link href="/auth/signup" className="btn primary">
@@ -638,7 +638,7 @@ const faqs = [
   },
   {
     q: "What does it cost?",
-    a: "Free for your first 10 practice sessions, no card required. After that, Starter is $100 per workspace per month for 50 sessions, everything included. Bigger teams? Talk to us about founding-partner pricing.",
+    a: "Free for your first 5 practice sessions, no card required. After that, Starter is $100 per workspace per month for 50 sessions, everything included. Bigger teams? Talk to us about founding-partner pricing.",
   },
 ];
 

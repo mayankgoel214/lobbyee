@@ -28,7 +28,7 @@ export async function createWorkspaceAction(
   }
   const { name, industry } = parsed.data;
 
-  // Trial-abuse / Gemini-spend cap: each workspace gets a fresh 10-session
+  // Trial-abuse / Gemini-spend cap: each workspace gets a fresh 5-session
   // free trial, so an unbounded number of owner workspaces means unbounded
   // free model spend per identity. Hold any one user to a small number of
   // owned workspaces. Counted via dbAdmin because the user may have no

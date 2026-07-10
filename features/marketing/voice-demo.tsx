@@ -1096,7 +1096,7 @@ function ReportScene({
           <Link href="/auth/signup" className="vd-outro-cta">
             Start free
           </Link>
-          <span className="vd-dim">Ten sessions, no card.</span>
+          <span className="vd-dim">Five sessions, no card.</span>
         </div>
       </div>
     </div>

@@ -14,7 +14,7 @@
 import "server-only";
 import { dbAdmin } from "@/lib/db/admin";
 
-export const TRIAL_SESSION_CAP = 10;
+export const TRIAL_SESSION_CAP = 5;
 
 export type CapResult =
   | { ok: true; used: number; cap: number }

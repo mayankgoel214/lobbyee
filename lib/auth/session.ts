@@ -1,5 +1,6 @@
 // Auth helpers for Server Components and Server Actions.
 import "server-only";
+import type { User } from "@supabase/supabase-js";
 import { redirect } from "next/navigation";
 import { dbForRequest } from "@/lib/db/scoped";
 import { supabaseServer } from "@/lib/supabase/server";
@@ -10,6 +11,32 @@ export async function getUser() {
     data: { user },
   } = await supabase.auth.getUser();
   return user;
+}
+
+/** Presentational identity for the CURRENT user only.
+ *  Sourced from Supabase session `user_metadata` (Google OAuth writes
+ *  `avatar_url` / `picture` and `full_name` / `name` there); no DB round-trip.
+ *  Falls back cleanly for password users who never had a photo. */
+export type CurrentUserIdentity = {
+  displayName: string;
+  avatarUrl: string | null;
+};
+
+export function identityFromUser(user: User): CurrentUserIdentity {
+  const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
+  const avatarUrl =
+    typeof meta.avatar_url === "string" && meta.avatar_url
+      ? meta.avatar_url
+      : typeof meta.picture === "string" && meta.picture
+        ? meta.picture
+        : null;
+  const displayName =
+    typeof meta.full_name === "string" && meta.full_name
+      ? meta.full_name
+      : typeof meta.name === "string" && meta.name
+        ? meta.name
+        : (user.email ?? "");
+  return { displayName, avatarUrl };
 }
 
 export async function requireUser() {

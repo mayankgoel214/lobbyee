@@ -1,7 +1,12 @@
 import { redirect } from "next/navigation";
+import { Avatar } from "@/components/avatar";
 import { Badge } from "@/components/ui";
 import { InviteForm } from "@/features/team/invite-form";
-import { isAdmin, requireMembership } from "@/lib/auth/session";
+import {
+  identityFromUser,
+  isAdmin,
+  requireMembership,
+} from "@/lib/auth/session";
 import { dbForRequest } from "@/lib/db/scoped";
 
 // Mirrors the /w/[slug] team page's data-loading pattern — same scoped query,
@@ -20,6 +25,12 @@ export default async function MembersSettingsPage({
     include: { profile: true },
     orderBy: { createdAt: "asc" },
   });
+  // Photo for the CURRENT user only — comes from the Supabase session
+  // metadata (Google OAuth writes it). Other rows keep initials.
+  // TODO: to show other members' Google photos, we'd need a Profile.avatarUrl
+  // column populated via the auth trigger (or on each sign-in), then
+  // include it in the query above.
+  const meIdentity = identityFromUser(user);
 
   return (
     <div className="flex flex-col gap-6">
@@ -41,12 +52,11 @@ export default async function MembersSettingsPage({
             <tbody>
               {members.map((m) => {
                 const name = m.profile.fullName ?? m.profile.email ?? "No name";
-                const initials = name
-                  .split(/[\s@]+/)
-                  .map((p) => p[0])
-                  .join("")
-                  .slice(0, 2)
-                  .toUpperCase();
+                const isMe = m.userId === user.id;
+                // Only the current user has a photo URL available (from
+                // session metadata). Others fall back to initials inside
+                // Avatar automatically.
+                const src = isMe ? meIdentity.avatarUrl : null;
                 return (
                   <tr
                     key={m.id}
@@ -54,15 +64,10 @@ export default async function MembersSettingsPage({
                   >
                     <td className="px-5 py-3">
                       <span className="inline-flex items-center gap-2.5">
-                        <span
-                          className="flex h-7 w-7 items-center justify-center rounded-full bg-accent-50 text-[10px] font-semibold text-accent-800"
-                          aria-hidden="true"
-                        >
-                          {initials}
-                        </span>
+                        <Avatar src={src} name={name} size={28} />
                         <span className="font-semibold text-neutral-900">
                           {m.profile.fullName ?? "No name"}
-                          {m.userId === user.id && (
+                          {isMe && (
                             <span className="ml-2 text-xs font-normal text-neutral-400">
                               you
                             </span>

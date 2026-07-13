@@ -1,10 +1,15 @@
 import { LogOut } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { Avatar } from "@/components/avatar";
 import { LobbyeeLogo } from "@/components/logo";
 import { SidebarNav } from "@/components/sidebar-nav";
 import { signOutAction } from "@/features/auth/actions";
-import { isAdmin, requireMembership } from "@/lib/auth/session";
+import {
+  identityFromUser,
+  isAdmin,
+  requireMembership,
+} from "@/lib/auth/session";
 
 export default async function WorkspaceLayout({
   children,
@@ -15,12 +20,11 @@ export default async function WorkspaceLayout({
 }) {
   const { slug } = await params;
   // Guard: redirects unless the user is an ACTIVE member (RLS-backed).
-  const { workspace, membership } = await requireMembership(slug);
+  const { user, workspace, membership } = await requireMembership(slug);
   const admin = isAdmin(membership.role);
-
-  // Initial for the workspace footer avatar chip. Falls back to "W" so the
-  // gradient dot never renders empty.
-  const workspaceInitial = workspace.name.trim().charAt(0).toUpperCase() || "W";
+  // Google OAuth writes photo + name into user_metadata; pull them out for
+  // the sidebar chip. Falls back to initials cleanly for password users.
+  const me = identityFromUser(user);
 
   return (
     <div className="flex min-h-screen bg-neutral-50">
@@ -39,18 +43,15 @@ export default async function WorkspaceLayout({
         </div>
         <div className="border-t border-neutral-200 p-3">
           <div className="flex items-center gap-2.5 px-2 pb-3">
-            <span
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-accent-600 to-clarity text-xs font-semibold text-white"
-              aria-hidden="true"
-            >
-              {workspaceInitial}
-            </span>
+            <Avatar src={me.avatarUrl} name={me.displayName} size={32} />
             <div className="min-w-0 leading-tight">
               <div className="truncate text-sm font-semibold text-neutral-900">
-                {workspace.name}
+                {me.displayName || workspace.name}
               </div>
-              <div className="text-xs text-neutral-400 capitalize">
-                {membership.role}
+              <div className="truncate text-xs text-neutral-400">
+                {workspace.name}
+                <span className="mx-1.5 text-neutral-300">·</span>
+                <span className="capitalize">{membership.role}</span>
               </div>
             </div>
           </div>

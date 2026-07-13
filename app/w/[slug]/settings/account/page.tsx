@@ -1,10 +1,11 @@
+import { Avatar } from "@/components/avatar";
 import { Card } from "@/components/ui";
 import {
   PasswordForm,
   ProfileForm,
   SignOutForm,
 } from "@/features/settings/account-forms";
-import { requireMembership } from "@/lib/auth/session";
+import { identityFromUser, requireMembership } from "@/lib/auth/session";
 import { dbForRequest } from "@/lib/db/scoped";
 
 export default async function AccountSettingsPage({
@@ -21,6 +22,13 @@ export default async function AccountSettingsPage({
     where: { id: user.id },
     select: { fullName: true, email: true },
   });
+  // Photo + name come from the Supabase session (Google OAuth); DB Profile
+  // still owns the editable full_name. Prefer stored fullName in the header
+  // so the ProfileForm's saved value is what you see reflected here.
+  const identity = identityFromUser(user);
+  const headerName =
+    profile?.fullName ?? identity.displayName ?? user.email ?? "Your profile";
+  const headerEmail = profile?.email ?? user.email ?? "";
 
   return (
     <div className="flex flex-col gap-6">
@@ -32,7 +40,27 @@ export default async function AccountSettingsPage({
           How your teammates see you across Lobbyee.
         </p>
         <Card>
-          <ProfileForm initialName={profile?.fullName ?? ""} />
+          <div className="flex items-center gap-4 pb-6">
+            <Avatar
+              src={identity.avatarUrl}
+              name={headerName}
+              size={64}
+              className="ring-2 ring-white shadow-sm"
+            />
+            <div className="min-w-0">
+              <div className="truncate text-base font-semibold text-neutral-900">
+                {headerName}
+              </div>
+              {headerEmail && (
+                <div className="truncate text-sm text-neutral-500">
+                  {headerEmail}
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="border-t border-neutral-100 pt-6">
+            <ProfileForm initialName={profile?.fullName ?? ""} />
+          </div>
           <div className="mt-6 border-t border-neutral-100 pt-4">
             <p className="text-xs font-semibold uppercase tracking-[0.06em] text-neutral-400">
               Email

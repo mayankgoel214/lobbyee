@@ -16,11 +16,24 @@ export default async function DangerZonePage({
 
   const subscription = await dbForRequest(user.id).subscription.findUnique({
     where: { workspaceId: workspace.id },
-    select: { stripeStatus: true },
+    select: { stripeStatus: true, razorpayStatus: true },
   });
-  const hasActiveSubscription = Boolean(
-    subscription && subscription.stripeStatus !== "canceled",
-  );
+  // "Active" for warning purposes = a subscription exists on either provider
+  // and its status is not one of the terminal-ended values. Razorpay is the
+  // current provider; Stripe is dormant but a legacy row can still count.
+  const RAZORPAY_ENDED = new Set([
+    "cancelled",
+    "completed",
+    "expired",
+    "halted",
+  ]);
+  const razorpayActive =
+    subscription?.razorpayStatus != null &&
+    !RAZORPAY_ENDED.has(subscription.razorpayStatus);
+  const stripeActive =
+    subscription?.stripeStatus != null &&
+    subscription.stripeStatus !== "canceled";
+  const hasActiveSubscription = Boolean(razorpayActive || stripeActive);
 
   return (
     <div className="flex flex-col gap-6">

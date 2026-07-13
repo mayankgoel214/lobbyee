@@ -59,19 +59,46 @@ model Workspace {
 // Phase 4 — billing (docs/architecture.md §7b, §13 Phase 4)
 // ---------------------------------------------------------------------------
 
-// Mirror of the workspace's Stripe subscription — written ONLY by the
+// Mirror of the workspace's active subscription — written ONLY by the
 // webhook handler (service path). Workspace admins can read it (billing
 // page); clients can never write it.
+//
+// Razorpay is the ACTIVE provider (migration 12). The Stripe columns
+// remain in place, unused, for reversibility — do not drop yet. Only ONE
+// provider's columns are populated per workspace; the other side is null.
 model Subscription {
   workspaceId          String    @id @map("workspace_id") @db.Uuid
-  stripeSubscriptionId String    @unique @map("stripe_subscription_id")
-  stripeStatus         String    @map("stripe_status")
+  // Stripe (dormant — kept for reversibility; nullable now so Razorpay-only
+  // rows can exist).
+  stripeSubscriptionId String?   @unique @map("stripe_subscription_id")
+  stripeStatus         String?   @map("stripe_status")
   currentPeriodEnd     DateTime  @map("current_period_end")
+  // Razorpay (active provider). razorpay_subscription_id is the join key
+  // used by the webhook handler; razorpay_customer_id is stored when
+  // Razorpay first creates it so we can cancel/upgrade later; plan id is
+  // recorded for defence-in-depth (must match RAZORPAY_PLAN_ID at webhook
+  // time — never trust plan claims from the body without our own record).
+  razorpaySubscriptionId String? @unique @map("razorpay_subscription_id")
+  razorpayCustomerId     String? @map("razorpay_customer_id")
+  razorpayPlanId         String? @map("razorpay_plan_id")
+  razorpayStatus         String? @map("razorpay_status")
   createdAt            DateTime  @default(now()) @map("created_at")
   updatedAt            DateTime  @updatedAt @map("updated_at")
   workspace            Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@map("subscription")
+}
+
+// Processed Razorpay webhook event ids — mirrors stripe_event. Idempotency
+// ledger; service-path only. We compose the id as `<event>:<payload_id>`
+// because Razorpay events themselves don't have a stable unique id in the
+// body, only the resource ids do — see razorpay-webhook-handlers.
+model RazorpayEvent {
+  id        String   @id
+  type      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("razorpay_event")
 }
 
 // Processed Stripe webhook event ids — the idempotency ledger. A replayed

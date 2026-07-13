@@ -38,6 +38,25 @@ const schema = z.object({
   STRIPE_WEBHOOK_SECRET: z.string().min(1).optional(),
   STRIPE_PRICE_ID: z.string().min(1).optional(),
 
+  // Razorpay billing (replaces Stripe as the ACTIVE provider). Same "optional
+  // at boot" pattern as Stripe — every action/route degrades to a clear
+  // "billing not configured" state when unset so preview envs still build.
+  //
+  // Key pair is used server-side ONLY (HTTP Basic auth against Razorpay's
+  // REST API). NEXT_PUBLIC_RAZORPAY_KEY_ID is the SAME key id exposed to the
+  // browser so checkout.js can attach the subscription — Razorpay's docs
+  // consider the key id public; the SECRET must never leak.
+  RAZORPAY_KEY_ID: z.string().min(1).optional(),
+  RAZORPAY_KEY_SECRET: z.string().min(1).optional(),
+  NEXT_PUBLIC_RAZORPAY_KEY_ID: z.string().min(1).optional(),
+  RAZORPAY_WEBHOOK_SECRET: z.string().min(1).optional(),
+  RAZORPAY_PLAN_ID: z.string().min(1).optional(),
+  // Display currency for the upgrade button. Razorpay accepts many currencies
+  // for one-time payments but a given plan is created against a single
+  // currency — this is a hint for the UI only. Default USD to match the
+  // existing $100/mo copy.
+  BILLING_CURRENCY: z.enum(["USD", "INR"]).default("USD"),
+
   // Voice (Phase 5). HMAC secret for the short-lived session token the
   // worker presents back to the app. Min 32 chars like CRON_SECRET. The
   // session-token route 503s until it's set, so voice is off by default.

@@ -12,6 +12,10 @@ import { isAdmin, requireMembership, requireUser } from "@/lib/auth/session";
 import { dbAdmin } from "@/lib/db/admin";
 import { dbForRequest } from "@/lib/db/scoped";
 import { rateLimit } from "@/lib/rate-limit";
+import {
+  cancelSubscription as razorpayCancelSubscription,
+  razorpayConfigured,
+} from "@/lib/razorpay/client";
 import { billingConfigured, stripe } from "@/lib/stripe/client";
 import { supabaseServer } from "@/lib/supabase/server";
 
@@ -221,14 +225,57 @@ export async function deleteWorkspaceAction(
     };
   }
 
-  // Cancel the Stripe subscription first if any. Wrapped in try/catch —
-  // Stripe errors are logged but do not block deletion (the workspace row
-  // still needs to go away; a stranded Stripe subscription can be canceled
-  // from the dashboard).
+  // Cancel any active subscription first (Razorpay = current provider,
+  // Stripe = dormant). Wrapped in try/catch — provider errors are logged
+  // but do not block deletion; a stranded subscription can be canceled
+  // from the provider dashboard as a fallback.
   const subscription = await dbAdmin.subscription.findUnique({
     where: { workspaceId: workspace.id },
-    select: { stripeSubscriptionId: true, stripeStatus: true },
+    select: {
+      stripeSubscriptionId: true,
+      stripeStatus: true,
+      razorpaySubscriptionId: true,
+      razorpayStatus: true,
+    },
   });
+
+  // Razorpay (active provider). "Ended" statuses that need no cancel call.
+  const razorpayEnded = new Set([
+    "cancelled",
+    "completed",
+    "expired",
+    // A "halted" subscription is already stopped billing — cancel is still
+    // safe/idempotent but treat as ended so a Razorpay 400 doesn't spam logs.
+    "halted",
+  ]);
+  if (
+    razorpayConfigured() &&
+    subscription?.razorpaySubscriptionId &&
+    (subscription.razorpayStatus === null ||
+      !razorpayEnded.has(subscription.razorpayStatus))
+  ) {
+    try {
+      // cancelAtCycleEnd=false — immediate: the workspace is being deleted,
+      // there is no future value in keeping the paid window open.
+      await razorpayCancelSubscription(subscription.razorpaySubscriptionId, {
+        cancelAtCycleEnd: false,
+      });
+    } catch (e: unknown) {
+      const err = e as { status?: number; message?: string };
+      // Razorpay returns 400 with description "already cancelled" for idempotent
+      // repeats — silence those, log the rest and continue deleting.
+      const msg = err?.message ?? String(e);
+      if (!/already.*cancel/i.test(msg)) {
+        console.error(
+          "deleteWorkspace: razorpay cancel failed (continuing):",
+          msg,
+        );
+      }
+    }
+  }
+
+  // Stripe (dormant provider) — keep the previous behaviour so any legacy
+  // Stripe-billed workspace still gets its subscription canceled on delete.
   if (
     billingConfigured() &&
     subscription?.stripeSubscriptionId &&
@@ -237,9 +284,6 @@ export async function deleteWorkspaceAction(
     try {
       await stripe().subscriptions.cancel(subscription.stripeSubscriptionId);
     } catch (e: unknown) {
-      // Idempotency: if Stripe says the subscription is already canceled
-      // or missing, treat as success and stay silent; otherwise log and
-      // continue — we still want the workspace row gone.
       const err = e as { code?: string; message?: string };
       if (err?.code !== "resource_missing") {
         console.error(

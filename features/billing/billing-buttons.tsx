@@ -63,7 +63,7 @@ function loadRazorpayCheckout(): Promise<RazorpayCtor> {
 
 const PRICE_COPY: Record<"USD" | "INR", string> = {
   USD: "Subscribe for $100/month",
-  INR: "Subscribe for ₹8,000/month",
+  INR: "Subscribe for ₹8,999/month",
 };
 
 export function SubscribeButton({

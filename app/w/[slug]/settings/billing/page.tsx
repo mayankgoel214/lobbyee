@@ -54,7 +54,7 @@ export default async function BillingSettingsPage({
   });
 
   const priceLabel =
-    env.BILLING_CURRENCY === "INR" ? "₹8,000/month" : "$100/month";
+    env.BILLING_CURRENCY === "INR" ? "₹8,999/month" : "$100/month";
   const status =
     subscription?.razorpayStatus ?? (onPaidPlan ? "active" : "trial");
   const scheduledForCancel = subscription?.razorpayStatus === "cancelled";

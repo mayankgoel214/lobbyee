@@ -6,9 +6,9 @@ import {
 } from "@/features/billing/billing-buttons";
 import { isAdmin, requireMembership } from "@/lib/auth/session";
 import { TRIAL_SESSION_CAP } from "@/lib/billing/cap";
-import { dbForRequest } from "@/lib/db/scoped";
+import { dbAdmin } from "@/lib/db/admin";
+import { dodoConfigured } from "@/lib/dodo/client";
 import { env } from "@/lib/env";
-import { razorpayBrowserConfigured } from "@/lib/razorpay/client";
 
 function UsageMeter({ used, cap }: { used: number; cap: number }) {
   const pct = Math.min(100, Math.round((used / Math.max(1, cap)) * 100));
@@ -37,28 +37,39 @@ export default async function BillingSettingsPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const { user, workspace, membership } = await requireMembership(slug);
+  const { workspace, membership } = await requireMembership(slug);
   if (!isAdmin(membership.role)) redirect(`/w/${slug}/settings/account`);
 
-  // Scoped read — the subscription_select policy admits workspace admins.
-  const subscription = await dbForRequest(user.id).subscription.findUnique({
-    where: { workspaceId: workspace.id },
-  });
+  // SERVICE-PATH JUSTIFICATION (dbAdmin): admin membership was just verified
+  // above; we read only billing columns that are already visible to admins
+  // through the subscription_select RLS policy. Raw SELECT because the
+  // dodo_* columns aren't in the currently-generated Prisma client (added
+  // by migration 13; picked up on next `prisma generate`).
+  const rows = await dbAdmin.$queryRaw<
+    { current_period_end: Date; dodo_status: string | null }[]
+  >`
+    SELECT current_period_end, dodo_status
+    FROM "subscription"
+    WHERE workspace_id = ${workspace.id}::uuid
+    LIMIT 1`;
+  const subscription = rows[0] ?? null;
 
   const onPaidPlan = workspace.plan === "starter";
   const cap = onPaidPlan ? workspace.sessionCapMonthly : TRIAL_SESSION_CAP;
-  const renewsOn = subscription?.currentPeriodEnd.toLocaleDateString("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
+  const renewsOn = subscription?.current_period_end.toLocaleDateString(
+    "en-US",
+    {
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    },
+  );
 
   const priceLabel =
     env.BILLING_CURRENCY === "INR" ? "₹8,999/month" : "$100/month";
-  const status =
-    subscription?.razorpayStatus ?? (onPaidPlan ? "active" : "trial");
-  const scheduledForCancel = subscription?.razorpayStatus === "cancelled";
-  const halted = subscription?.razorpayStatus === "halted";
+  const status = subscription?.dodo_status ?? (onPaidPlan ? "active" : "trial");
+  const scheduledForCancel = subscription?.dodo_status === "cancelled";
+  const onHold = subscription?.dodo_status === "on_hold";
 
   return (
     <div className="flex flex-col gap-6">
@@ -67,13 +78,13 @@ export default async function BillingSettingsPage({
           Billing &amp; plan
         </h2>
         <p className="mb-4 text-sm text-neutral-500">
-          Manage your subscription and usage. Payments powered by Razorpay.
+          Manage your subscription and usage. Payments powered by Dodo Payments.
         </p>
 
-        {halted && (
+        {onHold && (
           <div className="mb-4 rounded-xl border border-warn/30 bg-warn/10 p-4 text-sm text-[#a76a12] shadow-sm">
-            Your last payment didn&apos;t go through. Razorpay will retry. You
-            can subscribe again to update your payment method.
+            Your last payment didn&apos;t go through. Dodo will retry
+            automatically. Update your payment method to avoid interruption.
           </div>
         )}
         {scheduledForCancel && (
@@ -100,7 +111,7 @@ export default async function BillingSettingsPage({
           <UsageMeter used={workspace.sessionsUsedThisPeriod} cap={cap} />
         </Card>
 
-        {!razorpayBrowserConfigured() && !onPaidPlan ? (
+        {!dodoConfigured() && !onPaidPlan ? (
           <p className="text-sm text-neutral-500">
             Paid plans aren&apos;t available in this environment yet.
           </p>
@@ -110,13 +121,9 @@ export default async function BillingSettingsPage({
           </div>
         ) : (
           <div>
-            <SubscribeButton
-              slug={slug}
-              email={user.email ?? undefined}
-              workspaceName={workspace.name}
-            />
+            <SubscribeButton slug={slug} />
             <p className="mt-2 text-xs text-neutral-500">
-              Secure checkout by Razorpay. Cancel any time.
+              Secure checkout by Dodo Payments. Cancel any time.
             </p>
           </div>
         )}

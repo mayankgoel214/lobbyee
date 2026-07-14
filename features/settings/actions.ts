@@ -11,6 +11,10 @@ import { z } from "zod";
 import { isAdmin, requireMembership, requireUser } from "@/lib/auth/session";
 import { dbAdmin } from "@/lib/db/admin";
 import { dbForRequest } from "@/lib/db/scoped";
+import {
+  cancelSubscriptionImmediately as dodoCancelImmediately,
+  dodoConfigured,
+} from "@/lib/dodo/client";
 import { rateLimit } from "@/lib/rate-limit";
 import {
   cancelSubscription as razorpayCancelSubscription,
@@ -198,10 +202,13 @@ const deleteSchema = z.object({
 //     onDelete: Cascade on Membership / Persona / Scenario / Session /
 //     Subscription removes tenant rows atomically. Confirmed against
 //     prisma/schema.prisma (all workspace relations declare onDelete:
-//     Cascade). If the workspace has an active Stripe subscription we
-//     cancel it first — Stripe failures are logged but do not block
-//     deletion (the workspace row goes away either way; the Stripe
-//     subscription can be canceled from the dashboard as a fallback).
+//     Cascade). If the workspace has an active subscription on ANY provider
+//     (Dodo = active, Razorpay + Stripe = dormant) we cancel it first —
+//     provider failures are logged but do not block deletion (the workspace
+//     row goes away either way; the subscription can be cancelled from the
+//     provider dashboard as a fallback). The cancels are IMMEDIATE, not
+//     end-of-period: the workspace is gone, there's no paid time left to
+//     preserve.
 export async function deleteWorkspaceAction(
   _prev: DeleteWorkspaceFormState,
   formData: FormData,
@@ -225,10 +232,10 @@ export async function deleteWorkspaceAction(
     };
   }
 
-  // Cancel any active subscription first (Razorpay = current provider,
-  // Stripe = dormant). Wrapped in try/catch — provider errors are logged
-  // but do not block deletion; a stranded subscription can be canceled
-  // from the provider dashboard as a fallback.
+  // Cancel any active subscription first (Dodo = current provider,
+  // Razorpay + Stripe = dormant). Wrapped in try/catch — provider errors
+  // are logged but do not block deletion; a stranded subscription can be
+  // cancelled from the provider dashboard as a fallback.
   const subscription = await dbAdmin.subscription.findUnique({
     where: { workspaceId: workspace.id },
     select: {
@@ -238,6 +245,38 @@ export async function deleteWorkspaceAction(
       razorpayStatus: true,
     },
   });
+  // Dodo columns aren't in the currently-generated Prisma client (added by
+  // migration 13); raw SELECT parameterized on the RLS-validated workspaceId.
+  const dodoRows = await dbAdmin.$queryRaw<
+    { dodo_subscription_id: string | null; dodo_status: string | null }[]
+  >`
+    SELECT dodo_subscription_id, dodo_status FROM "subscription"
+    WHERE workspace_id = ${workspace.id}::uuid
+    LIMIT 1`;
+  const dodoRow = dodoRows[0] ?? null;
+
+  // Dodo (active provider). "Ended" statuses that need no cancel call.
+  const dodoEnded = new Set(["cancelled", "expired", "failed"]);
+  if (
+    dodoConfigured() &&
+    dodoRow?.dodo_subscription_id &&
+    (dodoRow.dodo_status === null || !dodoEnded.has(dodoRow.dodo_status))
+  ) {
+    try {
+      // Workspace is being deleted — cancel IMMEDIATELY (Dodo's PATCH with
+      // `status: "cancelled"`), not at-period-end. There's no paid time
+      // left to preserve for a workspace that will no longer exist.
+      await dodoCancelImmediately(dodoRow.dodo_subscription_id);
+    } catch (e: unknown) {
+      const err = e as { status?: number; message?: string };
+      const msg = err?.message ?? String(e);
+      // Idempotent "already cancelled / expired" is safe — swallow so
+      // repeated delete attempts don't spam logs.
+      if (!/already.*(cancel|expir)/i.test(msg)) {
+        console.error("deleteWorkspace: dodo cancel failed (continuing):", msg);
+      }
+    }
+  }
 
   // Razorpay (active provider). "Ended" statuses that need no cancel call.
   const razorpayEnded = new Set([

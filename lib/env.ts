@@ -38,7 +38,28 @@ const schema = z.object({
   STRIPE_WEBHOOK_SECRET: z.string().min(1).optional(),
   STRIPE_PRICE_ID: z.string().min(1).optional(),
 
-  // Razorpay billing (replaces Stripe as the ACTIVE provider). Same "optional
+  // Dodo Payments (Merchant-of-Record) — the ACTIVE billing provider as of
+  // migration 13. Same "optional at boot" pattern as Stripe/Razorpay: the
+  // billing page, subscribe action, and webhook all degrade to a clear
+  // "billing not configured" state (503 / user-friendly error) when unset so
+  // preview / CI environments still build cleanly.
+  //
+  // Base URL is derived from DODO_MODE — test = https://test.dodopayments.com,
+  // live = https://dodopayments.com. The schema-level refine below FORCES
+  // an explicit DODO_MODE when NODE_ENV=production (mirrors the pgbouncer
+  // refine on DATABASE_URL). Reason: a prod deploy that forgets to set it
+  // would silently land on the sandbox with live keys — every request 401s
+  // and no billing works. Test/dev/preview default to "test" (safe).
+  //
+  // Cards NEVER touch our server: Dodo hosts checkout and we redirect the
+  // user to `checkout_url`. So there is no NEXT_PUBLIC_* key here — no
+  // browser SDK is loaded.
+  DODO_API_KEY: z.string().min(1).optional(),
+  DODO_PRODUCT_ID: z.string().min(1).optional(),
+  DODO_WEBHOOK_SECRET: z.string().min(1).optional(),
+  DODO_MODE: z.enum(["test", "live"]).default("test"),
+
+  // Razorpay billing (previous provider — kept for reversibility). Same "optional
   // at boot" pattern as Stripe — every action/route degrades to a clear
   // "billing not configured" state when unset so preview envs still build.
   //
@@ -71,6 +92,23 @@ const schema = z.object({
     .default("development"),
 });
 
+const schemaWithRefines = schema.superRefine((v, ctx) => {
+  // In production, require DODO_MODE to be set EXPLICITLY (not the default) —
+  // but ONLY when Dodo is actually configured (an API key is present).
+  // Otherwise Dodo is inert and the default "test" is harmless; requiring
+  // DODO_MODE unconditionally would break every deploy that hasn't wired Dodo
+  // yet. When Dodo IS live, the default of "test" would silently point live
+  // keys at the sandbox, so we force an explicit choice.
+  if (v.NODE_ENV === "production" && v.DODO_API_KEY && !process.env.DODO_MODE) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["DODO_MODE"],
+      message:
+        "DODO_MODE must be set explicitly in production (test | live) — the default of 'test' is only for local/preview builds",
+    });
+  }
+});
+
 function loadEnv(): z.infer<typeof schema> {
   // Escape hatch for builds without secrets (CI quality job). next build
   // sets NODE_ENV=production, so we detect the build phase explicitly —
@@ -83,7 +121,7 @@ function loadEnv(): z.infer<typeof schema> {
   ) {
     return process.env as unknown as z.infer<typeof schema>;
   }
-  const parsed = schema.safeParse(process.env);
+  const parsed = schemaWithRefines.safeParse(process.env);
   if (!parsed.success) {
     const missing = parsed.error.issues
       .map((i) => `  ${i.path.join(".")}: ${i.message}`)

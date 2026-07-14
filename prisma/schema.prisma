@@ -82,11 +82,32 @@ model Subscription {
   razorpayCustomerId     String? @map("razorpay_customer_id")
   razorpayPlanId         String? @map("razorpay_plan_id")
   razorpayStatus         String? @map("razorpay_status")
+  // Dodo Payments (active provider — migration 13). Razorpay columns are
+  // kept but no longer written by new checkouts; only ONE provider's
+  // columns are populated per workspace. Product-id defence-in-depth lives
+  // in the webhook handler (compares data.product_id vs. env.DODO_PRODUCT_ID)
+  // rather than a stored column — Dodo has no per-workspace product
+  // customization, so a workspace-scoped product_id is redundant.
+  dodoSubscriptionId     String? @unique @map("dodo_subscription_id")
+  dodoCustomerId         String? @map("dodo_customer_id")
+  dodoStatus             String? @map("dodo_status")
   createdAt            DateTime  @default(now()) @map("created_at")
   updatedAt            DateTime  @updatedAt @map("updated_at")
   workspace            Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@map("subscription")
+}
+
+// Processed Dodo Payments webhook event ids — mirrors stripe_event /
+// razorpay_event. Idempotency ledger; service-path only. We use the
+// Standard-Webhooks `webhook-id` header (unique per delivery) directly as
+// the primary key — no composition needed.
+model DodoEvent {
+  id        String   @id
+  type      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("dodo_event")
 }
 
 // Processed Razorpay webhook event ids — mirrors stripe_event. Idempotency

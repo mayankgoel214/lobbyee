@@ -1,7 +1,19 @@
 import { redirect } from "next/navigation";
 import { DeleteWorkspaceForm } from "@/features/settings/delete-workspace-form";
 import { requireMembership } from "@/lib/auth/session";
+import { dbAdmin } from "@/lib/db/admin";
 import { dbForRequest } from "@/lib/db/scoped";
+
+// Statuses on the Dodo side that mean "money is (or will soon be) moving" —
+// so deleting the workspace without cancelling first would keep charging the
+// customer. Kept in sync with LIVE_STATUSES in features/billing/actions.ts.
+const DODO_LIVE_STATUSES = new Set([
+  "active",
+  "renewed",
+  "on_hold",
+  "pending",
+  "processing",
+]);
 
 export default async function DangerZonePage({
   params,
@@ -14,13 +26,27 @@ export default async function DangerZonePage({
   const { user, workspace, membership } = await requireMembership(slug);
   if (membership.role !== "owner") redirect(`/w/${slug}/settings/account`);
 
+  // Scoped read for the legacy Stripe/Razorpay columns (owners have SELECT
+  // via the subscription_select policy).
   const subscription = await dbForRequest(user.id).subscription.findUnique({
     where: { workspaceId: workspace.id },
     select: { stripeStatus: true, razorpayStatus: true },
   });
-  // "Active" for warning purposes = a subscription exists on either provider
-  // and its status is not one of the terminal-ended values. Razorpay is the
-  // current provider; Stripe is dormant but a legacy row can still count.
+
+  // Dodo columns aren't in the currently-generated Prisma client (added by
+  // migration 13). SERVICE-PATH JUSTIFICATION (dbAdmin): the user's
+  // ownership was just verified above via RLS-scoped requireMembership; the
+  // raw SELECT is parameterized on that trusted workspaceId, and dodo_status
+  // is admin-visible via the same subscription_select policy anyway.
+  const dodoRows = await dbAdmin.$queryRaw<{ dodo_status: string | null }[]>`
+    SELECT dodo_status FROM "subscription"
+    WHERE workspace_id = ${workspace.id}::uuid
+    LIMIT 1`;
+  const dodoStatus = dodoRows[0]?.dodo_status ?? null;
+
+  // "Active" for warning purposes = a subscription exists on ANY provider
+  // in a status where money is or will soon be moving. Dodo is the active
+  // provider; Razorpay + Stripe are dormant but a legacy row can still count.
   const RAZORPAY_ENDED = new Set([
     "cancelled",
     "completed",
@@ -33,7 +59,10 @@ export default async function DangerZonePage({
   const stripeActive =
     subscription?.stripeStatus != null &&
     subscription.stripeStatus !== "canceled";
-  const hasActiveSubscription = Boolean(razorpayActive || stripeActive);
+  const dodoActive = dodoStatus != null && DODO_LIVE_STATUSES.has(dodoStatus);
+  const hasActiveSubscription = Boolean(
+    dodoActive || razorpayActive || stripeActive,
+  );
 
   return (
     <div className="flex flex-col gap-6">

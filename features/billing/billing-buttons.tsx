@@ -3,101 +3,33 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button, FormError } from "@/components/ui";
 import {
-  cancelSubscriptionAction,
-  createRazorpaySubscriptionAction,
+  cancelDodoSubscriptionAction,
+  createDodoCheckoutAction,
   getBillingStatusAction,
 } from "./actions";
-
-const CHECKOUT_SRC = "https://checkout.razorpay.com/v1/checkout.js";
-
-// Narrow type — we only use the Razorpay constructor + .open().
-type RazorpayCtor = new (options: RazorpayOptions) => { open: () => void };
-type RazorpayOptions = {
-  key: string;
-  subscription_id: string;
-  name: string;
-  description: string;
-  currency?: string;
-  prefill?: { email?: string; name?: string };
-  notes?: Record<string, string>;
-  theme?: { color?: string };
-  handler?: (response: {
-    razorpay_payment_id: string;
-    razorpay_subscription_id: string;
-    razorpay_signature: string;
-  }) => void;
-  modal?: { ondismiss?: () => void };
-};
-declare global {
-  interface Window {
-    Razorpay?: RazorpayCtor;
-  }
-}
-
-/** Load checkout.js once per page; resolves when the global is available.
- *  Reuses an in-flight load if two buttons mount at the same time. */
-let checkoutLoader: Promise<RazorpayCtor> | null = null;
-function loadRazorpayCheckout(): Promise<RazorpayCtor> {
-  if (typeof window === "undefined") {
-    return Promise.reject(new Error("Razorpay Checkout requires a browser."));
-  }
-  if (window.Razorpay) return Promise.resolve(window.Razorpay);
-  if (checkoutLoader) return checkoutLoader;
-  checkoutLoader = new Promise<RazorpayCtor>((resolve, reject) => {
-    const existing = document.querySelector<HTMLScriptElement>(
-      `script[src="${CHECKOUT_SRC}"]`,
-    );
-    const el = existing ?? document.createElement("script");
-    el.src = CHECKOUT_SRC;
-    el.async = true;
-    el.onload = () => {
-      if (window.Razorpay) resolve(window.Razorpay);
-      else reject(new Error("Razorpay script loaded but global is missing."));
-    };
-    el.onerror = () =>
-      reject(new Error("Failed to load Razorpay Checkout script."));
-    if (!existing) document.head.appendChild(el);
-  });
-  return checkoutLoader;
-}
 
 const PRICE_COPY: Record<"USD" | "INR", string> = {
   USD: "Subscribe for $100/month",
   INR: "Subscribe for ₹8,999/month",
 };
 
-export function SubscribeButton({
-  slug,
-  email,
-  workspaceName,
-}: {
-  slug: string;
-  email?: string | undefined;
-  workspaceName?: string | undefined;
-}) {
+/** Subscribe button — kicks off a Dodo hosted-checkout redirect. No SDK is
+ *  loaded on our page; we hand control to Dodo's URL and rely on the
+ *  webhook to flip the workspace plan when the subscription becomes active.
+ *
+ *  On return to /w/[slug]/settings/billing we poll for the plan flip
+ *  (webhook race) and surface a "still activating" fallback after ~15s so
+ *  the user never re-clicks Subscribe (which would hit the double-billing
+ *  guard). Same polling pattern used for the Razorpay flow before this. */
+export function SubscribeButton({ slug }: { slug: string }) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | undefined>();
-  // "activating" = payment succeeded on the client, waiting for webhook to
-  // flip the plan. We poll getBillingStatusAction and reload as soon as
-  // plan=starter arrives (rather than a fixed timer that races the webhook).
   const [activating, setActivating] = useState(false);
   const [slowActivation, setSlowActivation] = useState(false);
   const [currency, setCurrency] = useState<"USD" | "INR">("USD");
   const mounted = useRef(true);
   const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
-    mounted.current = true;
-    return () => {
-      mounted.current = false;
-      if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
-    };
-  }, []);
-
-  // Poll for the plan flip. Interval 2s, hard fallback after ~15s that
-  // shows "still activating, refresh" so the user never sits on a stuck
-  // screen (and doesn't re-click Subscribe — which would hit the
-  // double-billing guard).
   const startPolling = useCallback(() => {
     const startedAt = Date.now();
     const HARD_FALLBACK_MS = 15_000;
@@ -108,13 +40,14 @@ export function SubscribeButton({
         const status = await getBillingStatusAction(slug);
         if (!mounted.current) return;
         if (status.ok && status.plan === "starter") {
+          if (typeof window !== "undefined") {
+            window.sessionStorage.removeItem(`dodo-activating:${slug}`);
+          }
           window.location.reload();
           return;
         }
       } catch (e) {
-        // Transient — keep polling; if we truly never converge, the
-        // hard-fallback banner takes over.
-        console.warn("razorpay billing status poll failed:", e);
+        console.warn("dodo billing status poll failed:", e);
       }
       if (Date.now() - startedAt >= HARD_FALLBACK_MS) {
         if (mounted.current) setSlowActivation(true);
@@ -125,51 +58,51 @@ export function SubscribeButton({
     pollTimerRef.current = setTimeout(tick, INTERVAL_MS);
   }, [slug]);
 
+  useEffect(() => {
+    mounted.current = true;
+    // If we've just come back from Dodo, we might already be in the
+    // "activating" window — start polling opportunistically. (Cheap: the
+    // action bails immediately for anyone not admin, and the query is a
+    // single-row lookup by workspaceId.)
+    if (
+      typeof window !== "undefined" &&
+      window.sessionStorage.getItem(`dodo-activating:${slug}`) === "1"
+    ) {
+      setActivating(true);
+      startPolling();
+    }
+    return () => {
+      mounted.current = false;
+      if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
+    };
+  }, [slug, startPolling]);
+
   const start = useCallback(async () => {
     setError(undefined);
     setPending(true);
     try {
-      const result = await createRazorpaySubscriptionAction(slug);
+      const result = await createDodoCheckoutAction(slug);
       if (!result.ok) {
         setError(result.error);
+        setPending(false);
         return;
       }
       setCurrency(result.currency);
-      const Razorpay = await loadRazorpayCheckout();
-      const options: RazorpayOptions = {
-        key: result.keyId,
-        subscription_id: result.subscriptionId,
-        name: workspaceName ?? "Lobbyee",
-        description: "Starter plan",
-        currency: result.currency,
-        prefill: email ? { email } : {},
-        notes: { slug },
-        theme: { color: "#0f766e" },
-        handler: () => {
-          // Payment succeeded client-side. The webhook does the real plan
-          // flip — start polling for it and reload as soon as we see
-          // plan=starter.
-          if (!mounted.current) return;
-          setActivating(true);
-          setPending(false);
-          startPolling();
-        },
-        modal: {
-          ondismiss: () => {
-            if (!mounted.current) return;
-            setPending(false);
-          },
-        },
-      };
-      new Razorpay(options).open();
+      // Mark that we're expecting to come back into activating mode so
+      // the effect above can pick up polling on the return leg.
+      if (typeof window !== "undefined") {
+        window.sessionStorage.setItem(`dodo-activating:${slug}`, "1");
+      }
+      // Hosted redirect — Dodo owns the entire card flow from here.
+      window.location.assign(result.checkoutUrl);
     } catch (e) {
-      console.error("razorpay checkout open failed:", e);
+      console.error("dodo checkout open failed:", e);
       if (mounted.current) {
         setError("Couldn't open checkout. Try again in a moment.");
         setPending(false);
       }
     }
-  }, [slug, email, workspaceName, startPolling]);
+  }, [slug]);
 
   if (activating) {
     return (
@@ -179,7 +112,7 @@ export function SubscribeButton({
         </Button>
         {slowActivation ? (
           <p className="mt-2 text-xs text-neutral-500">
-            Razorpay is taking a moment to confirm. Your payment IS on file — no
+            Dodo is taking a moment to confirm. Your payment IS on file — no
             need to click Subscribe again.{" "}
             <button
               type="button"
@@ -192,7 +125,7 @@ export function SubscribeButton({
           </p>
         ) : (
           <p className="mt-2 text-xs text-neutral-500">
-            Payment received. This page will refresh once Razorpay confirms the
+            Payment received. This page will refresh once Dodo confirms the
             subscription.
           </p>
         )}
@@ -227,7 +160,7 @@ export function CancelSubscriptionButton({ slug }: { slug: string }) {
     setError(undefined);
     setPending(true);
     try {
-      const result = await cancelSubscriptionAction(slug);
+      const result = await cancelDodoSubscriptionAction(slug);
       if (!result.ok) {
         setError(result.error);
         setPending(false);
@@ -235,7 +168,6 @@ export function CancelSubscriptionButton({ slug }: { slug: string }) {
       }
       setDone(true);
       setPending(false);
-      // Refresh to pick up the updated status badge.
       if (typeof window !== "undefined")
         setTimeout(() => window.location.reload(), 1500);
     } catch (e) {

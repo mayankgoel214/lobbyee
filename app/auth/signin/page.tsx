@@ -14,7 +14,11 @@ import {
 const initial: AuthFormState = {};
 
 export default function SignInPage() {
-  const [mode, setMode] = useState<"password" | "magic">("password");
+  // Magic link is the DEFAULT: the page already tells staff this is how they
+  // sign in, and hiding it behind a mode switch meant the send button was one
+  // click further than anyone got — the rate-limit ledger recorded zero magic
+  // link requests for the entire life of the two-step form.
+  const [mode, setMode] = useState<"password" | "magic">("magic");
   const [authError, setAuthError] = useState<string | null>(null);
   // Shared across both modes so switching doesn't blank out what the user
   // already typed — the empty field was the main reason people switched to
@@ -101,8 +105,7 @@ export default function SignInPage() {
       ) : (
         <form action={mlSubmit} className="flex flex-col gap-4">
           <p className="-mt-1 text-sm text-neutral-500">
-            We&rsquo;ll email you a link that signs you in — no password needed.
-            Press <span className="font-medium">Send magic link</span> below.
+            We&rsquo;ll email you a link that signs you in instantly.
           </p>
           <div>
             <Label htmlFor="ml-email">Email</Label>

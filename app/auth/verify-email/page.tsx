@@ -49,6 +49,28 @@ export default async function VerifyEmailPage({
           </div>
         ) : null}
 
+        {/* Signing up with an address that already has an account is a silent
+            dead end: Supabase's anti-enumeration behaviour sends no mail and
+            reports no error, so the user waits on an inbox that will never
+            receive anything. We can't detect that case without leaking which
+            emails are registered, so instead we always offer the way out. */}
+        {isMagic ? null : (
+          <div className="mt-8 w-full rounded-lg border border-neutral-200 bg-neutral-50 p-4">
+            <p className="text-sm text-neutral-600">
+              <span className="font-medium text-neutral-800">
+                Already have an account?
+              </span>{" "}
+              Signing up again won&rsquo;t send a new email. Sign in instead.
+            </p>
+            <Link
+              href="/auth/signin"
+              className="mt-3 inline-flex text-sm font-medium text-accent-700 hover:text-accent-800"
+            >
+              Go to sign in
+            </Link>
+          </div>
+        )}
+
         <div className="mt-8 border-t border-neutral-100 pt-6">
           <Link
             href="/auth/signin"

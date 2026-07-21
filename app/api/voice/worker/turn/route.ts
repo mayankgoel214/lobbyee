@@ -16,6 +16,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { moodNote } from "@/lib/ai/guest";
 import { dbForRequest } from "@/lib/db/scoped";
+import { rateLimit } from "@/lib/rate-limit";
 import { authorizeVoiceRequest } from "@/lib/voice/authorize";
 import { runVoiceTurn } from "@/lib/voice/run-voice-turn";
 import { loadVoiceSnapshot } from "@/lib/voice/snapshot";
@@ -35,6 +36,26 @@ export async function POST(request: Request) {
   const auth = authorizeVoiceRequest(request);
   if (!auth.ok) return new NextResponse(null, { status: auth.status });
   const { claims } = auth;
+
+  // Cost guard: each persisted turn spends a mood + coach Gemini pair. The mint
+  // endpoint is capped per-user, but once a token is issued this endpoint is the
+  // hot path — a buggy/adversarial/looping worker (or a leaked token) could
+  // otherwise drive unbounded AI spend until the token expires. 40/min per
+  // SESSION (from the verified token claim, never the body) is far above any
+  // human voice cadence while killing a hot loop. Fails open like all limits.
+  const limit = await rateLimit(`voice-turn:${claims.sessionId}`, {
+    max: 40,
+    windowSeconds: 60,
+  });
+  if (!limit.ok) {
+    return NextResponse.json(
+      { error: "Too many turns; slow down." },
+      {
+        status: 429,
+        headers: { "Retry-After": String(limit.retryAfterSeconds) },
+      },
+    );
+  }
 
   let body: z.infer<typeof bodySchema>;
   try {
@@ -57,6 +78,21 @@ export async function POST(request: Request) {
   if (loaded.status !== "in_progress") {
     return NextResponse.json(
       { error: "This session has ended." },
+      { status: 409 },
+    );
+  }
+
+  // Conversation-length cap — MIRRORS the text path (features/sessions/actions.ts:
+  // sendTurnAction). Count only real dialogue (coach hints add a third row per
+  // turn and must not shrink the budget). Without this, the voice path had no
+  // ceiling: a valid token could persist turns until it expired. 409 so the
+  // worker treats it as terminal and stops resending.
+  const conversationTurns = loaded.snapshot.messages.filter(
+    (m) => m.role !== "coach",
+  ).length;
+  if (conversationTurns >= 80) {
+    return NextResponse.json(
+      { error: "This session is very long. End it to get your transcript." },
       { status: 409 },
     );
   }

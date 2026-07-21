@@ -27,6 +27,7 @@
 #   LOBBYEE_BASE_URL      app base (default http://localhost:3000)
 #   PORT                  server port (default 7860)
 #   VOICE_ALLOWED_ORIGINS CORS allow-list, comma-sep (default "*")
+#   VOICE_VAD_STOP_SECS   pause tolerance before end-of-turn (default 1.5s)
 #   VOICE_GUEST_MODEL     default gemini-2.5-flash
 #   DEEPGRAM_API_KEY / CARTESIA_API_KEY / GEMINI_API_KEY
 #   VOICE_SESSION_TOKEN   set ONLY for the legacy single-session local run.
@@ -47,6 +48,7 @@ from dotenv import load_dotenv
 from loguru import logger
 
 from pipecat.audio.vad.silero import SileroVADAnalyzer
+from pipecat.audio.vad.vad_analyzer import VADParams
 from pipecat.frames.frames import Frame, TranscriptionFrame, TTSSpeakFrame
 from pipecat.pipeline.pipeline import Pipeline
 from pipecat.pipeline.runner import PipelineRunner
@@ -83,6 +85,14 @@ PORT = int(os.getenv("PORT", "7860"))
 ALLOWED_ORIGINS = [
     o.strip() for o in os.getenv("VOICE_ALLOWED_ORIGINS", "*").split(",") if o.strip()
 ]
+# How long a trainee can pause mid-sentence before the guest takes its turn.
+# Silero's own default is 0.8s — short enough that a natural "let me think…"
+# pause gets registered as end-of-turn and the guest jumps in on a half-finished
+# sentence. We widen it to 1.5s: enough to ride out a thinking pause while still
+# feeling like a live conversation. Tunable per taste without a code change —
+# ~1.2s = snappier, ~2.0s = more patient. (A semantic end-of-turn model is the
+# heavier follow-up if a fixed window ever proves too blunt.)
+VAD_STOP_SECS = float(os.getenv("VOICE_VAD_STOP_SECS", "1.5"))
 
 logger.info(f"Lobbyee voice worker → {BASE_URL} (guest model: {GUEST_MODEL})")
 
@@ -276,7 +286,13 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments, token:
     mood_injector = MoodInjector(state)
     user_aggregator, assistant_aggregator = LLMContextAggregatorPair(
         context,
-        user_params=LLMUserAggregatorParams(vad_analyzer=SileroVADAnalyzer()),
+        user_params=LLMUserAggregatorParams(
+            # stop_secs is the pause tolerance: how long the trainee can go quiet
+            # mid-sentence before we treat the turn as finished. See VAD_STOP_SECS.
+            vad_analyzer=SileroVADAnalyzer(
+                params=VADParams(stop_secs=VAD_STOP_SECS)
+            ),
+        ),
     )
 
     # RTVI processor: lets us push custom server messages (the per-turn coach

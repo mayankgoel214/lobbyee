@@ -16,6 +16,7 @@
 import { NextResponse } from "next/server";
 import { moodNote, OPENING_CUE } from "@/lib/ai/guest";
 import { dbForRequest } from "@/lib/db/scoped";
+import { rateLimit } from "@/lib/rate-limit";
 import { authorizeVoiceRequest } from "@/lib/voice/authorize";
 import { loadVoiceSnapshot } from "@/lib/voice/snapshot";
 import {
@@ -30,6 +31,22 @@ export async function GET(request: Request) {
   if (!auth.ok) return new NextResponse(null, { status: auth.status });
 
   const { claims } = auth;
+
+  // Looser cost/DB guard than the turn route (snapshot is normally one call per
+  // connection and spends no AI, only a scoped read + prompt render). Bounds a
+  // reconnect/loop hammer on the same session. Keyed by the verified session
+  // claim; fails open.
+  const limit = await rateLimit(`voice-snapshot:${claims.sessionId}`, {
+    max: 20,
+    windowSeconds: 60,
+  });
+  if (!limit.ok) {
+    return new NextResponse(null, {
+      status: 429,
+      headers: { "Retry-After": String(limit.retryAfterSeconds) },
+    });
+  }
+
   // Scoped to the token's trainee — never a client-supplied id, never dbAdmin.
   const db = dbForRequest(claims.userId);
   const loaded = await loadVoiceSnapshot(db, claims.sessionId);

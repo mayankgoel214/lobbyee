@@ -348,18 +348,31 @@ function VoiceRoomInner({
   // user line + each guest line as the RTVI events arrive.
   const [coachHint, setCoachHint] = useState<string | null>(initialHint);
   const [transcript, setTranscript] = useState<TranscriptLine[]>([]);
+  // Live (interim) subtitle of what the trainee is currently saying, shown as an
+  // in-progress bubble until the line finalizes. This is the visible signal that
+  // the system is STILL LISTENING — so a mid-sentence pause reads as "keep going"
+  // rather than leaving the trainee unsure whether their half-sentence was sent.
+  const [interimText, setInterimText] = useState("");
   // Mood history for the live analytics panel — seeded with the opening mood so
   // the panel shows a baseline immediately, then one entry appended per turn.
   const [moodHistory, setMoodHistory] = useState<MoodVector[]>([initialMood]);
   const transcriptEndRef = useRef<HTMLDivElement>(null);
 
-  // Append a final user transcription line. Deepgram emits interim (final=false)
-  // results too — we only commit finalized lines so the panel doesn't churn.
+  // User transcription. Deepgram emits interim (final=false) partials as the
+  // trainee speaks, then a final line. We render the interim live as a subtitle
+  // and only COMMIT the finalized line to the transcript so the panel/dedupe
+  // logic works on stable text.
   useVoiceEvent<TranscriptData>(
     RTVIEvent.UserTranscript,
     useCallback((data) => {
-      if (!data.final) return;
       const text = stripMoodNote(data.text ?? "");
+      if (!data.final) {
+        // Interim partial — show it live; don't commit.
+        setInterimText(text);
+        return;
+      }
+      // Finalized — clear the live subtitle and commit the clean line.
+      setInterimText("");
       if (!text) return;
       // dedupeUserLine drops the mood-prefixed duplicate; cap the list so a long
       // call can't grow the DOM without bound (returns the same ref on a no-op
@@ -378,6 +391,9 @@ function VoiceRoomInner({
     useCallback((data) => {
       const text = data.text?.trim();
       if (!text) return;
+      // The guest is replying — drop any lingering partial (defensive: a final
+      // user line normally clears it first).
+      setInterimText("");
       setTranscript((t) =>
         [...t, { role: "guest" as const, text }].slice(-TRANSCRIPT_CAP),
       );
@@ -405,11 +421,12 @@ function VoiceRoomInner({
     }, []),
   );
 
-  // Keep the newest line in view as the conversation grows.
+  // Keep the newest line in view as the conversation grows — including while a
+  // live subtitle is being typed out.
   // biome-ignore lint/correctness/useExhaustiveDependencies: scroll on every append
   useEffect(() => {
     transcriptEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [transcript.length]);
+  }, [transcript.length, interimText]);
 
   const isReady = transportState === "ready";
   const isConnecting = [
@@ -545,7 +562,7 @@ function VoiceRoomInner({
             {/* Live transcript — appends each final user line + guest line as the
                 RTVI transcription events arrive. Reuses the chat.tsx bubble styling. */}
             <div className="flex flex-1 flex-col overflow-y-auto px-4 py-4">
-              {transcript.length === 0 ? (
+              {transcript.length === 0 && !interimText ? (
                 <p className="m-auto max-w-sm text-center text-sm text-neutral-400">
                   Listening… your conversation with {personaName} will appear
                   here.
@@ -565,6 +582,19 @@ function VoiceRoomInner({
                       {m.text}
                     </div>
                   ))}
+                  {/* Live subtitle of the in-progress utterance — dimmed + a
+                      pulsing cursor so it reads as "still listening", not sent. */}
+                  {interimText && (
+                    <div
+                      aria-live="polite"
+                      className="max-w-[80%] self-end rounded-2xl rounded-br-md bg-accent-600/55 px-3.5 py-2.5 text-sm text-white shadow-sm"
+                    >
+                      {interimText}
+                      <span className="ml-0.5 inline-block animate-pulse">
+                        ▍
+                      </span>
+                    </div>
+                  )}
                   <div ref={transcriptEndRef} />
                 </div>
               )}

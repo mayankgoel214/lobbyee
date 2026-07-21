@@ -16,6 +16,10 @@ const initial: AuthFormState = {};
 export default function SignInPage() {
   const [mode, setMode] = useState<"password" | "magic">("password");
   const [authError, setAuthError] = useState<string | null>(null);
+  // Shared across both modes so switching doesn't blank out what the user
+  // already typed — the empty field was the main reason people switched to
+  // magic-link mode and then abandoned without ever pressing Send.
+  const [email, setEmail] = useState("");
   const [pwState, pwSubmit, pwPending] = useActionState(signInAction, initial);
   const [mlState, mlSubmit, mlPending] = useActionState(
     magicLinkAction,
@@ -68,6 +72,8 @@ export default function SignInPage() {
               type="email"
               autoComplete="email"
               required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
             />
           </div>
           <div>
@@ -89,11 +95,15 @@ export default function SignInPage() {
             className="text-sm text-accent-700 transition-colors hover:text-accent-800"
             onClick={() => setMode("magic")}
           >
-            Email me a magic link instead
+            Use a magic link instead
           </button>
         </form>
       ) : (
         <form action={mlSubmit} className="flex flex-col gap-4">
+          <p className="-mt-1 text-sm text-neutral-500">
+            We&rsquo;ll email you a link that signs you in — no password needed.
+            Press <span className="font-medium">Send magic link</span> below.
+          </p>
           <div>
             <Label htmlFor="ml-email">Email</Label>
             <Input
@@ -102,6 +112,8 @@ export default function SignInPage() {
               type="email"
               autoComplete="email"
               required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
             />
           </div>
           <FormError>{mlState.error}</FormError>

@@ -157,9 +157,9 @@ export default async function SessionPage({
         : "bad";
 
   return (
-    <main className="mx-auto max-w-xl p-6">
+    <main className="mx-auto max-w-xl p-6 md:p-8">
       <div className="mb-5 flex items-start justify-between gap-3">
-        <div>
+        <div className="min-w-0">
           <h1 className="text-lg font-semibold text-neutral-900">
             {session.scenario.title}
           </h1>
@@ -172,6 +172,7 @@ export default async function SessionPage({
         </div>
         <Badge
           variant={session.status === "in_progress" ? "accent" : "neutral"}
+          className="shrink-0"
         >
           {session.status === "in_progress" ? "in progress" : session.status}
         </Badge>

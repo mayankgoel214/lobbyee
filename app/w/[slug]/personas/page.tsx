@@ -19,8 +19,8 @@ export default async function PersonasPage({
 
   return (
     <main className="mx-auto max-w-4xl p-6 md:p-8">
-      <div className="mb-6 flex items-start justify-between gap-3">
-        <div>
+      <div className="mb-6 flex items-start justify-between gap-4">
+        <div className="min-w-0">
           <h1 className="text-2xl font-semibold tracking-tight text-neutral-900">
             Guests
           </h1>
@@ -31,7 +31,7 @@ export default async function PersonasPage({
           </p>
         </div>
         {admin && (
-          <Link href={`/w/${slug}/personas/new`}>
+          <Link href={`/w/${slug}/personas/new`} className="shrink-0">
             <Button>
               <Plus size={16} strokeWidth={2} aria-hidden="true" />
               New guest

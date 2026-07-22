@@ -75,7 +75,7 @@ export default function NewScenarioPage({
   }
 
   return (
-    <main className="mx-auto max-w-xl p-6">
+    <main className="mx-auto max-w-xl p-6 md:p-8">
       <h1 className="mb-1 text-xl font-semibold text-neutral-900">
         New situation
       </h1>

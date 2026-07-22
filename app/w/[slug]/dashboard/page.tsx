@@ -166,7 +166,7 @@ export default async function DashboardPage({
   return (
     <main className="mx-auto max-w-5xl p-6 md:p-8">
       <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
-        <div>
+        <div className="min-w-0">
           <h1 className="text-2xl font-semibold tracking-tight text-neutral-900">
             Dashboard
           </h1>
@@ -174,7 +174,7 @@ export default async function DashboardPage({
             How your front desk is handling difficult guests.
           </p>
         </div>
-        <span className="inline-flex items-center gap-2 rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-xs text-neutral-600 shadow-sm">
+        <span className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-xs text-neutral-600 shadow-sm">
           <CalendarDays size={13} aria-hidden="true" />
           Last 30 days ·{" "}
           <span className="font-semibold text-neutral-900 tabular-nums">

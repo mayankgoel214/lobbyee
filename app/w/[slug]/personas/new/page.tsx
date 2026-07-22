@@ -25,7 +25,7 @@ export default function NewPersonaPage({
   const [state, action, pending] = useActionState(createPersonaAction, initial);
 
   return (
-    <main className="mx-auto max-w-xl p-6">
+    <main className="mx-auto max-w-xl p-6 md:p-8">
       <h1 className="mb-1 text-xl font-semibold text-neutral-900">New guest</h1>
       <p className="mb-6 text-sm text-neutral-500">
         Define who this guest is: their temperament and story. You'll pair them

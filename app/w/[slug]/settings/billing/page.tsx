@@ -96,7 +96,7 @@ export default async function BillingSettingsPage({
 
         <Card className="mb-4">
           <div className="mb-4 flex items-start justify-between gap-3">
-            <div>
+            <div className="min-w-0">
               <p className="text-sm font-semibold text-neutral-900">
                 {onPaidPlan ? "Starter plan" : "Free trial"}
               </p>
@@ -106,7 +106,12 @@ export default async function BillingSettingsPage({
                   : `${TRIAL_SESSION_CAP} practice sessions to try Lobbyee, no card required`}
               </p>
             </div>
-            <Badge variant={onPaidPlan ? "accent" : "neutral"}>{status}</Badge>
+            <Badge
+              variant={onPaidPlan ? "accent" : "neutral"}
+              className="shrink-0"
+            >
+              {status}
+            </Badge>
           </div>
           <UsageMeter used={workspace.sessionsUsedThisPeriod} cap={cap} />
         </Card>

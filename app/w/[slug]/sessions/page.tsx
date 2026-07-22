@@ -94,13 +94,15 @@ export default async function SessionsPage({
     : "My sessions";
 
   return (
-    <main className="mx-auto max-w-2xl p-6">
-      <div className="mb-5 flex items-baseline justify-between">
-        <h1 className="text-lg font-semibold text-neutral-900">{title}</h1>
+    <main className="mx-auto max-w-2xl p-6 md:p-8">
+      <div className="mb-5 flex items-baseline justify-between gap-3">
+        <h1 className="min-w-0 truncate text-lg font-semibold text-neutral-900">
+          {title}
+        </h1>
         {viewingOther && (
           <Link
             href={`/w/${slug}/dashboard`}
-            className="inline-flex items-center gap-1 text-sm text-accent-700 transition-colors hover:text-accent-800"
+            className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-sm text-accent-700 transition-colors hover:text-accent-800"
           >
             <ArrowLeft size={16} strokeWidth={2} aria-hidden="true" />
             Dashboard

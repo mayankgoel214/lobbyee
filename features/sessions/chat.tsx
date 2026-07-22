@@ -152,16 +152,20 @@ export function ChatSession({
 
   return (
     <div className="mx-auto flex h-[calc(100dvh-100px)] max-w-xl flex-col md:h-dvh">
-      <header className="flex items-center justify-between px-4 py-3">
-        <div>
-          <h1 className="text-sm font-semibold">{scenarioTitle}</h1>
-          <p className="text-xs text-neutral-500">with {personaName}</p>
+      <header className="flex items-center justify-between gap-3 px-4 py-3">
+        <div className="min-w-0">
+          <h1 className="truncate text-sm font-semibold text-neutral-900">
+            {scenarioTitle}
+          </h1>
+          <p className="truncate text-xs text-neutral-500">
+            with {personaName}
+          </p>
         </div>
         <button
           type="button"
           onClick={end}
           disabled={ending}
-          className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm text-bad transition-colors hover:bg-bad/10 disabled:opacity-50"
+          className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-sm text-bad transition-colors hover:bg-bad/10 disabled:opacity-50"
         >
           <Square size={13} aria-hidden="true" />
           End session

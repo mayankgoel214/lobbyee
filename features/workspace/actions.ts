@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { DEFAULT_GUESTS } from "@/features/personas/default-guests";
 import { requireUser } from "@/lib/auth/session";
 import { dbAdmin } from "@/lib/db/admin";
 import { slugify } from "./slug";
@@ -46,9 +47,10 @@ export async function createWorkspaceAction(
 
   const base = slugify(name);
   let slug = base;
+  let workspaceId = "";
   for (let attempt = 0; ; attempt++) {
     try {
-      await dbAdmin.workspace.create({
+      const ws = await dbAdmin.workspace.create({
         data: {
           slug,
           name,
@@ -58,6 +60,7 @@ export async function createWorkspaceAction(
           },
         },
       });
+      workspaceId = ws.id;
       break;
     } catch (e: unknown) {
       const code = (e as { code?: string }).code;
@@ -69,5 +72,24 @@ export async function createWorkspaceAction(
       return { error: "Could not create the workspace. Try again." };
     }
   }
+
+  // Seed a starter set of guests so the Guests tab isn't empty on day one
+  // (the Situations tab already ships with a library). Best-effort: a seed
+  // failure must never block a successful workspace creation, so it's caught
+  // and logged. dbAdmin — same bootstrap justification as the create above.
+  try {
+    await dbAdmin.persona.createMany({
+      data: DEFAULT_GUESTS.map((g) => ({
+        workspaceId,
+        name: g.name,
+        guestType: g.guestType,
+        backstory: g.backstory,
+        baselineMood: g.baselineMood,
+      })),
+    });
+  } catch (e) {
+    console.error("starter guest seed failed:", e);
+  }
+
   redirect(`/w/${slug}`);
 }

@@ -36,6 +36,22 @@ const emailSchema = z.object({
   email: z.string().trim().email("Enter a valid email"),
 });
 
+// Which email flow a code belongs to. Supabase verifies a signup-confirmation
+// code with type "signup" and a passwordless sign-in code with type "email";
+// passing the wrong type just fails, so the verify page carries the flow.
+const flowSchema = z.enum(["magic", "signup"]).optional();
+
+const verifyCodeSchema = z.object({
+  email: z.string().trim().email("Enter a valid email"),
+  // Supabase emails a 6-digit numeric code. Strip spaces the user might paste.
+  code: z
+    .string()
+    .trim()
+    .transform((s) => s.replace(/\s+/g, ""))
+    .pipe(z.string().regex(/^\d{6}$/, "Enter the 6-digit code")),
+  flow: flowSchema,
+});
+
 export async function signUpAction(
   _prev: AuthFormState,
   formData: FormData,
@@ -74,13 +90,17 @@ export async function signUpAction(
   // an account already exists. Real failures are logged server-side.
   if (error) {
     console.error("signUp failed:", error.code);
-    redirect(`/auth/verify-email?email=${encodeURIComponent(email)}`);
+    redirect(
+      `/auth/verify-code?email=${encodeURIComponent(email)}&flow=signup`,
+    );
   }
 
   // If email confirmation is enabled there's no session yet — send the user to
-  // a dedicated full-page screen (not an easy-to-miss inline message).
+  // the code-entry screen to type the 6-digit confirmation code.
   if (!data.session) {
-    redirect(`/auth/verify-email?email=${encodeURIComponent(email)}`);
+    redirect(
+      `/auth/verify-code?email=${encodeURIComponent(email)}&flow=signup`,
+    );
   }
   redirect(await afterAuthDestination(data.session.user.id));
 }
@@ -135,15 +155,108 @@ export async function magicLinkAction(
     const supabase = await supabaseServer();
     const { error } = await supabase.auth.signInWithOtp({
       email: parsed.data.email,
+      // emailRedirectTo is still set so any link in the template keeps working
+      // during the template switchover; the primary path is now the 6-digit
+      // code the user types on /auth/verify-code (no browser/link dependency).
       options: { emailRedirectTo: `${siteUrl()}/auth/confirm` },
     });
     if (error) console.error("signInWithOtp failed:", error.code);
   }
   // Constant response whether or not the account exists / the mail was sent —
-  // prevents enumeration — and a full-page screen instead of an inline message.
+  // prevents enumeration. The user types the emailed code on the next screen.
   redirect(
-    `/auth/verify-email?email=${encodeURIComponent(parsed.data.email)}&via=magic`,
+    `/auth/verify-code?email=${encodeURIComponent(parsed.data.email)}&flow=magic`,
   );
+}
+
+// Verify a 6-digit email code (passwordless sign-in OR signup confirmation).
+// This is the browser-independent, scanner-proof path: the code is typed in the
+// same tab that requested it, so there is no PKCE code_verifier cookie to lose
+// and no URL for an email security scanner to pre-consume.
+export async function verifyCodeAction(
+  _prev: AuthFormState,
+  formData: FormData,
+): Promise<AuthFormState> {
+  const parsed = verifyCodeSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+  const { email, code, flow } = parsed.data;
+  // A 6-digit code is only 1,000,000 combinations, so cap verification attempts
+  // per email AND per IP to keep brute force infeasible within the code's short
+  // validity window. Supabase also limits server-side; this is defence in depth.
+  const ip = await clientIp();
+  const ipOk = (
+    await rateLimit(`verify:${ip}`, { max: 10, windowSeconds: 900 })
+  ).ok;
+  const emailOk = (
+    await rateLimit(emailKey("verify-email", email), {
+      max: 10,
+      windowSeconds: 3600,
+    })
+  ).ok;
+  if (!ipOk || !emailOk) {
+    return {
+      error:
+        "Too many attempts. Request a new code and try again in a few minutes.",
+    };
+  }
+  const supabase = await supabaseServer();
+  const { data, error } = await supabase.auth.verifyOtp({
+    email,
+    token: code,
+    type: flow === "signup" ? "signup" : "email",
+  });
+  if (error || !data.user) {
+    if (error) console.error("verifyOtp failed:", error.code);
+    return {
+      error:
+        "That code is incorrect or has expired. Check it, or request a new one.",
+    };
+  }
+  redirect(await afterAuthDestination(data.user.id));
+}
+
+// Resend a code from the /auth/verify-code screen. Flow-aware so the resent
+// code matches the type the verify page will submit: a signup confirmation for
+// the signup flow, a passwordless sign-in code otherwise. Enumeration-safe +
+// rate limited so it can't flood an inbox.
+export async function resendCodeAction(
+  _prev: AuthFormState,
+  formData: FormData,
+): Promise<AuthFormState> {
+  const parsed = z
+    .object({ email: emailSchema.shape.email, flow: flowSchema })
+    .safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { error: "Enter a valid email" };
+  const { email, flow } = parsed.data;
+  const ip = await clientIp();
+  const ipOk = (await rateLimit(`resend:${ip}`, { max: 5, windowSeconds: 900 }))
+    .ok;
+  const emailOk = (
+    await rateLimit(emailKey("resend-email", email), {
+      max: 3,
+      windowSeconds: 3600,
+    })
+  ).ok;
+  if (ipOk && emailOk) {
+    const supabase = await supabaseServer();
+    if (flow === "signup") {
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email,
+        options: { emailRedirectTo: `${siteUrl()}/auth/confirm` },
+      });
+      if (error) console.error("resend signup failed:", error.code);
+    } else {
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: { emailRedirectTo: `${siteUrl()}/auth/confirm` },
+      });
+      if (error) console.error("resend otp failed:", error.code);
+    }
+  }
+  return { message: "Sent. Check your inbox and spam folder again." };
 }
 
 // "Continue with Google". Runs server-side: Supabase returns the Google

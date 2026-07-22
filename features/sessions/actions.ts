@@ -12,6 +12,10 @@ import { dbAdmin } from "@/lib/db/admin";
 import { dbForRequest } from "@/lib/db/scoped";
 import { drainSession, enqueueEvaluation } from "@/lib/eval/service";
 import { rateLimit } from "@/lib/rate-limit";
+import {
+  assessOutcome,
+  type OutcomeAssessment,
+} from "@/lib/scenario/resolution";
 import { runTurn, textAI, textPersistence } from "@/lib/turn-engine";
 import { GUEST_SYSTEM_VERSION } from "@/prompts/guest-system";
 
@@ -25,6 +29,9 @@ export type TurnResult =
       // Live coach nudge for this turn (§5g). null = the hint call failed or
       // timed out; the UI keeps whatever hint it last showed.
       coachHint: string | null;
+      // Whether the guest's arc has reached a natural end-point (win / best
+      // case / blow-up). Drives the win-state banner + "see report" CTA.
+      outcome: OutcomeAssessment;
     }
   | { ok: false; error: string };
 
@@ -375,6 +382,10 @@ export async function sendTurnAction(input: {
     mood: outcome.mood,
     turnIndex: outcome.guestTurnIndex,
     coachHint: outcome.coachHint,
+    // Assessed server-side from the post-turn mood + the scenario's
+    // resolvability (which never leaves the server) — the client only learns
+    // the outcome label, never the hidden need behind it.
+    outcome: assessOutcome(outcome.mood, session.scenario.resolvability),
   };
 }
 

@@ -1,10 +1,14 @@
 "use client";
 
-import { Send, Sparkles, Square } from "lucide-react";
+import { CheckCircle2, Send, Sparkles, Square } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { endSessionAction, sendTurnAction } from "@/features/sessions/actions";
 import type { MoodVector } from "@/lib/ai/mood";
+import {
+  type OutcomeAssessment,
+  SOFT_TURN_LIMIT,
+} from "@/lib/scenario/resolution";
 
 type ChatMessage = { role: "user" | "guest"; text: string };
 
@@ -62,6 +66,54 @@ function MoodStrip({ mood }: { mood: MoodVector }) {
   );
 }
 
+// Shown once the guest's arc reaches a natural end-point (win / best case /
+// blow-up). Gives the trainee a clear "you're done, here's how you did" moment
+// and leads them straight to the coaching report instead of guessing when to
+// stop.
+function ConcludedBanner({
+  outcome,
+  onFinish,
+  ending,
+}: {
+  outcome: OutcomeAssessment;
+  onFinish: () => void;
+  ending: boolean;
+}) {
+  const box =
+    outcome.tone === "bad"
+      ? "border-bad/30 bg-bad/5"
+      : outcome.tone === "warn"
+        ? "border-warn/30 bg-warn/5"
+        : "border-good/30 bg-good/5";
+  const accent =
+    outcome.tone === "bad"
+      ? "text-bad"
+      : outcome.tone === "warn"
+        ? "text-warn"
+        : "text-good";
+  return (
+    <div className={`flex flex-col gap-2 border-t px-4 py-3 ${box}`}>
+      <div className="flex items-center gap-2">
+        <CheckCircle2 size={16} className={accent} aria-hidden="true" />
+        <span className={`text-sm font-semibold ${accent}`}>
+          {outcome.headline}
+        </span>
+      </div>
+      <p className="text-xs leading-relaxed text-neutral-600">
+        {outcome.detail}
+      </p>
+      <button
+        type="button"
+        onClick={onFinish}
+        disabled={ending}
+        className="mt-1 inline-flex items-center justify-center gap-1.5 rounded-lg bg-accent-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent-700 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        {ending ? "Preparing your report…" : "See your coaching report"}
+      </button>
+    </div>
+  );
+}
+
 // Always-on coach strip (§5g): a persistent one-line nudge that updates each
 // turn. A soft teal→blue gradient makes it read as coach-voice — visually
 // distinct from guest/staff bubbles so it never joins the conversation.
@@ -102,6 +154,7 @@ export function ChatSession({
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
   const [mood, setMood] = useState<MoodVector>(initialMood);
   const [hint, setHint] = useState<string | null>(initialHint);
+  const [outcome, setOutcome] = useState<OutcomeAssessment | null>(null);
   const [input, setInput] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -126,6 +179,7 @@ export function ChatSession({
         setMood(result.mood);
         // null = the hint call failed/timed out this turn → keep the last one.
         if (result.coachHint) setHint(result.coachHint);
+        setOutcome(result.outcome);
       } else {
         setError(result.error);
         setMessages((m) => m.slice(0, -1));
@@ -134,8 +188,11 @@ export function ChatSession({
     });
   }
 
-  function end() {
-    if (!window.confirm("End this training session?")) return;
+  function end(needConfirm = true) {
+    // When the guest's arc has already concluded, the trainee is intentionally
+    // heading to their report — no "are you sure?" friction. The manual
+    // header button still confirms, since that's a mid-conversation bail-out.
+    if (needConfirm && !window.confirm("End this training session?")) return;
     setError(null);
     setEnding(true);
     startTransition(async () => {
@@ -163,7 +220,7 @@ export function ChatSession({
         </div>
         <button
           type="button"
-          onClick={end}
+          onClick={() => end()}
           disabled={ending}
           className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-sm text-bad transition-colors hover:bg-bad/10 disabled:opacity-50"
         >
@@ -204,6 +261,20 @@ export function ChatSession({
           {error}
         </p>
       )}
+
+      {outcome?.concluded ? (
+        <ConcludedBanner
+          outcome={outcome}
+          onFinish={() => end(false)}
+          ending={ending}
+        />
+      ) : messages.filter((m) => m.role === "user").length >=
+        SOFT_TURN_LIMIT ? (
+        <p className="border-t border-neutral-200 bg-neutral-50 px-4 py-2 text-center text-xs text-neutral-500">
+          This one&rsquo;s run a while. Keep going, or end the session anytime
+          to see your report.
+        </p>
+      ) : null}
 
       <div className="flex items-center gap-2 border-t border-neutral-200 bg-white p-3">
         <input

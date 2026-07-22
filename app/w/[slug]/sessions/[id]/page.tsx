@@ -16,7 +16,16 @@ import { requireMembership } from "@/lib/auth/session";
 import { dbForRequest } from "@/lib/db/scoped";
 import { drainSession } from "@/lib/eval/service";
 import { asResolvability, RESOLVABILITY_LABELS } from "@/lib/scenario/depth";
+import { assessOutcome, type Outcome } from "@/lib/scenario/resolution";
 import type { CompetencyKey } from "@/prompts/evaluator";
+
+const OUTCOME_LABEL: Record<Outcome, string> = {
+  resolved: "Resolved",
+  settled: "Settled",
+  deescalated: "De-escalated",
+  escalated: "Guest checked out",
+  in_progress: "Ended unresolved",
+};
 
 // Ending a session kicks off the evaluator via after() — give the function
 // room to finish the ~15-30s of LLM work after the response is sent.
@@ -156,6 +165,16 @@ export default async function SessionPage({
         ? "warn"
         : "bad";
 
+  // How the conversation actually ended, derived from the final guest mood.
+  // Shown on a completed report so the trainee sees whether they landed it.
+  const finalOutcome = assessOutcome(mood, session.scenario.resolvability);
+  const outcomeVariant =
+    finalOutcome.outcome === "escalated"
+      ? "bad"
+      : finalOutcome.outcome === "in_progress"
+        ? "neutral"
+        : "good";
+
   return (
     <main className="mx-auto max-w-xl p-6 md:p-8">
       <div className="mb-5 flex items-start justify-between gap-3">
@@ -168,6 +187,11 @@ export default async function SessionPage({
             <Badge variant={resolvabilityVariant}>
               {RESOLVABILITY_LABELS[resolvability]}
             </Badge>
+            {session.status === "completed" && hasTraineeTurns && (
+              <Badge variant={outcomeVariant}>
+                {OUTCOME_LABEL[finalOutcome.outcome]}
+              </Badge>
+            )}
           </p>
         </div>
         <Badge

@@ -66,6 +66,12 @@ async function dodoFetch<T>(
     }
   }
   if (!res.ok) {
+    // TEMP DEBUG (remove after diagnosing the live 406): print Dodo's raw
+    // response body verbatim. Their 406 is undocumented and comes back with
+    // no message field, so the status alone isn't actionable.
+    console.error(
+      `dodo raw error: ${init.method} ${path} -> ${res.status} body=${text.slice(0, 2000)}`,
+    );
     const msg =
       (parsed as { message?: string; error?: string } | null)?.message ??
       (parsed as { message?: string; error?: string } | null)?.error ??

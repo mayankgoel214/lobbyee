@@ -112,8 +112,8 @@ export function SubscribeButton({ slug }: { slug: string }) {
         </Button>
         {slowActivation ? (
           <p className="mt-2 text-xs text-neutral-500">
-            Dodo is taking a moment to confirm. Your payment IS on file — no
-            need to click Subscribe again.{" "}
+            Dodo is taking a moment to confirm. Your payment IS on file, no need
+            to click Subscribe again.{" "}
             <button
               type="button"
               className="underline underline-offset-2 hover:text-neutral-800"

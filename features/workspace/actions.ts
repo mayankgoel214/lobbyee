@@ -55,6 +55,10 @@ export async function createWorkspaceAction(
           slug,
           name,
           industry,
+          // Voice is the flagship mode, so every workspace ships with it on.
+          // (It still only works where a worker is hosted; the app degrades to
+          // text if the worker is unreachable.)
+          voiceEnabled: true,
           memberships: {
             create: { userId: user.id, role: "owner", status: "active" },
           },

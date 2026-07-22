@@ -28,7 +28,11 @@ export function StartSessionForm({
   }>;
 }) {
   const [state, action, pending] = useActionState(startSessionAction, initial);
-  const [modality, setModality] = useState<"text" | "voice">("text");
+  // Voice is the flagship mode: preselect it whenever it's available, falling
+  // back to text only where voice is off.
+  const [modality, setModality] = useState<"text" | "voice">(
+    voiceEnabled ? "voice" : "text",
+  );
   const selectClass =
     "w-full rounded-lg border border-neutral-200 bg-white px-3.5 py-2.5 text-sm text-neutral-900 outline-none transition-colors focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20";
 

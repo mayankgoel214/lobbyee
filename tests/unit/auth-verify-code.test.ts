@@ -56,13 +56,28 @@ beforeEach(() => {
 });
 
 describe("verifyCodeAction", () => {
-  it("rejects a non-6-digit code without calling Supabase", async () => {
+  it("rejects a too-short code without calling Supabase", async () => {
     const res = await verifyCodeAction(
       {},
       fd({ email: "a@b.com", code: "12" }),
     );
     expect(res.error).toBeTruthy();
     expect(verifyOtp).not.toHaveBeenCalled();
+  });
+
+  it("accepts an 8-digit signup code (Supabase's signup-token length)", async () => {
+    verifyOtp.mockResolvedValue({ data: { user: { id: "u8" } }, error: null });
+    await expect(
+      verifyCodeAction(
+        {},
+        fd({ email: "a@b.com", code: "00794846", flow: "signup" }),
+      ),
+    ).rejects.toThrow("REDIRECT:/dest/u8");
+    expect(verifyOtp).toHaveBeenCalledWith({
+      email: "a@b.com",
+      token: "00794846",
+      type: "signup",
+    });
   });
 
   it("strips pasted whitespace and accepts a clean 6-digit code", async () => {

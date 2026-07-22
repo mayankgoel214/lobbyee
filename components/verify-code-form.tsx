@@ -32,7 +32,7 @@ export function VerifyCodeForm({
         <input type="hidden" name="email" value={email} />
         <input type="hidden" name="flow" value={flow} />
         <div>
-          <Label htmlFor="code">6-digit code</Label>
+          <Label htmlFor="code">Code from your email</Label>
           <Input
             id="code"
             name="code"
@@ -40,11 +40,11 @@ export function VerifyCodeForm({
             inputMode="numeric"
             autoComplete="one-time-code"
             pattern="[0-9]*"
-            maxLength={6}
+            maxLength={8}
             required
             autoFocus
-            placeholder="123456"
-            className="text-center text-lg tracking-[0.4em]"
+            placeholder="Enter the code"
+            className="text-center text-lg tracking-[0.3em]"
           />
         </div>
         <FormError>{state.error}</FormError>

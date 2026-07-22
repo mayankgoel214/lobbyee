@@ -46,12 +46,15 @@ const flowSchema = z.enum(["magic", "signup"]).optional().catch(undefined);
 
 const verifyCodeSchema = z.object({
   email: z.string().trim().email("Enter a valid email"),
-  // Supabase emails a 6-digit numeric code. Strip spaces the user might paste.
+  // Supabase emails a numeric code. Its length depends on the flow / project
+  // OTP setting: passwordless sign-in codes are 6 digits, signup-confirmation
+  // codes are 8. Accept 6-8 and strip any spaces the user pastes; Supabase is
+  // the real validator, so this regex only blocks obviously-malformed input.
   code: z
     .string()
     .trim()
     .transform((s) => s.replace(/\s+/g, ""))
-    .pipe(z.string().regex(/^\d{6}$/, "Enter the 6-digit code")),
+    .pipe(z.string().regex(/^\d{6,8}$/, "Enter the code from your email")),
   flow: flowSchema,
 });
 

@@ -29,7 +29,7 @@ export default async function VerifyCodePage({
           Enter your code
         </h1>
         <p className="mt-2 text-sm leading-relaxed text-neutral-500">
-          We emailed a 6-digit code to{" "}
+          We emailed a code to{" "}
           {address ? (
             <span className="font-medium text-neutral-800">{address}</span>
           ) : (

@@ -105,8 +105,7 @@ export default function SignInPage() {
       ) : (
         <form action={mlSubmit} className="flex flex-col gap-4">
           <p className="-mt-1 text-sm text-neutral-500">
-            We&rsquo;ll email you a 6-digit code to sign in — no password
-            needed.
+            We&rsquo;ll email you a code to sign in — no password needed.
           </p>
           <div>
             <Label htmlFor="ml-email">Email</Label>

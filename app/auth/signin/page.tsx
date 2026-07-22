@@ -36,7 +36,7 @@ export default function SignInPage() {
     const code = new URLSearchParams(window.location.search).get("error");
     if (code === "link-expired-or-invalid") {
       setAuthError(
-        "That link has expired or was already used. Sign in below, or request a new magic link.",
+        "That link has expired or was already used. Sign in below, or request a new sign-in code.",
       );
     } else if (code === "google") {
       setAuthError(
@@ -52,7 +52,7 @@ export default function SignInPage() {
           Sign in to Lobbyee
         </h1>
         <p className="mt-1.5 text-sm text-neutral-500">
-          Staff usually sign in with a magic link, no password needed.
+          Staff usually sign in with an emailed code, no password needed.
         </p>
       </div>
       {authError ? (
@@ -99,13 +99,14 @@ export default function SignInPage() {
             className="text-sm text-accent-700 transition-colors hover:text-accent-800"
             onClick={() => setMode("magic")}
           >
-            Use a magic link instead
+            Email me a sign-in code instead
           </button>
         </form>
       ) : (
         <form action={mlSubmit} className="flex flex-col gap-4">
           <p className="-mt-1 text-sm text-neutral-500">
-            We&rsquo;ll email you a link that signs you in instantly.
+            We&rsquo;ll email you a 6-digit code to sign in — no password
+            needed.
           </p>
           <div>
             <Label htmlFor="ml-email">Email</Label>
@@ -122,7 +123,7 @@ export default function SignInPage() {
           <FormError>{mlState.error}</FormError>
           <FormMessage>{mlState.message}</FormMessage>
           <Button type="submit" disabled={mlPending}>
-            {mlPending ? "Sending…" : "Send magic link"}
+            {mlPending ? "Sending…" : "Send code"}
           </Button>
           <button
             type="button"

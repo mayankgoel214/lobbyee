@@ -39,7 +39,10 @@ const emailSchema = z.object({
 // Which email flow a code belongs to. Supabase verifies a signup-confirmation
 // code with type "signup" and a passwordless sign-in code with type "email";
 // passing the wrong type just fails, so the verify page carries the flow.
-const flowSchema = z.enum(["magic", "signup"]).optional();
+// `.catch(undefined)` so a garbled ?flow= value defaults to the magic path
+// instead of failing the whole verify request (which would trap a user with a
+// perfectly valid code behind a bad query param).
+const flowSchema = z.enum(["magic", "signup"]).optional().catch(undefined);
 
 const verifyCodeSchema = z.object({
   email: z.string().trim().email("Enter a valid email"),
@@ -183,23 +186,29 @@ export async function verifyCodeAction(
   }
   const { email, code, flow } = parsed.data;
   // A 6-digit code is only 1,000,000 combinations, so cap verification attempts
-  // per email AND per IP to keep brute force infeasible within the code's short
+  // per IP AND per email to keep brute force infeasible within the code's short
   // validity window. Supabase also limits server-side; this is defence in depth.
+  const tooMany = {
+    error:
+      "Too many attempts. Request a new code and try again in a few minutes.",
+  };
   const ip = await clientIp();
-  const ipOk = (
-    await rateLimit(`verify:${ip}`, { max: 10, windowSeconds: 900 })
-  ).ok;
-  const emailOk = (
-    await rateLimit(emailKey("verify-email", email), {
-      max: 10,
-      windowSeconds: 3600,
-    })
-  ).ok;
-  if (!ipOk || !emailOk) {
-    return {
-      error:
-        "Too many attempts. Request a new code and try again in a few minutes.",
-    };
+  // IP bucket FIRST, and return before touching the email bucket if it trips.
+  // Otherwise an attacker on a single IP could hammer with a victim's address
+  // and burn the victim's per-email budget — locking the real user out of the
+  // verify screen even though the attacker never knew the code.
+  if (!(await rateLimit(`verify:${ip}`, { max: 10, windowSeconds: 900 })).ok) {
+    return tooMany;
+  }
+  if (
+    !(
+      await rateLimit(emailKey("verify-code", email), {
+        max: 10,
+        windowSeconds: 3600,
+      })
+    ).ok
+  ) {
+    return tooMany;
   }
   const supabase = await supabaseServer();
   const { data, error } = await supabase.auth.verifyOtp({
@@ -233,12 +242,16 @@ export async function resendCodeAction(
   const ip = await clientIp();
   const ipOk = (await rateLimit(`resend:${ip}`, { max: 5, windowSeconds: 900 }))
     .ok;
-  const emailOk = (
-    await rateLimit(emailKey("resend-email", email), {
-      max: 3,
-      windowSeconds: 3600,
-    })
-  ).ok;
+  // Short-circuit: only spend the per-email budget when the IP passed, so a
+  // blocked attacker can't drain a victim's resend allowance from one IP.
+  const emailOk =
+    ipOk &&
+    (
+      await rateLimit(emailKey("resend-email", email), {
+        max: 3,
+        windowSeconds: 3600,
+      })
+    ).ok;
   if (ipOk && emailOk) {
     const supabase = await supabaseServer();
     if (flow === "signup") {
@@ -278,38 +291,6 @@ export async function signInWithGoogleAction(): Promise<void> {
     redirect("/auth/signin?error=google");
   }
   redirect(data.url);
-}
-
-// Resend a sign-in link from the "check your email" screen. Uses a magic link
-// (signInWithOtp) which both confirms a brand-new signup and signs in an
-// existing user, so one button covers every case. Enumeration-safe + rate
-// limited so it can't be used to flood an inbox.
-export async function resendEmailAction(
-  _prev: AuthFormState,
-  formData: FormData,
-): Promise<AuthFormState> {
-  const parsed = emailSchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) return { error: "Enter a valid email" };
-  // Per-IP AND per-email buckets (see magicLinkAction). Send only when both
-  // allow; always return the same constant message so nothing is revealed.
-  const ip = await clientIp();
-  const ipOk = (await rateLimit(`resend:${ip}`, { max: 5, windowSeconds: 900 }))
-    .ok;
-  const emailOk = (
-    await rateLimit(emailKey("resend-email", parsed.data.email), {
-      max: 3,
-      windowSeconds: 3600,
-    })
-  ).ok;
-  if (ipOk && emailOk) {
-    const supabase = await supabaseServer();
-    const { error } = await supabase.auth.signInWithOtp({
-      email: parsed.data.email,
-      options: { emailRedirectTo: `${siteUrl()}/auth/confirm` },
-    });
-    if (error) console.error("resend signInWithOtp failed:", error.code);
-  }
-  return { message: "Sent. Check your inbox and spam folder again." };
 }
 
 export async function signOutAction(): Promise<void> {

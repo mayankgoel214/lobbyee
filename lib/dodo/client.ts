@@ -16,7 +16,11 @@ import { env } from "@/lib/env";
 
 const DODO_BASE_URLS = {
   test: "https://test.dodopayments.com",
-  live: "https://dodopayments.com",
+  // Live API host is live.dodopayments.com — NOT the bare dodopayments.com
+  // (that's the marketing site, which returns 406 "Supported types:
+  // text/html, text/markdown" to an API POST). This only bites in live mode;
+  // test mode used the correct host, so it passed every test-mode E2E.
+  live: "https://live.dodopayments.com",
 } as const;
 
 function dodoBaseUrl(): string {

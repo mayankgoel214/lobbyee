@@ -30,10 +30,20 @@ export type LoadedSession = {
 };
 
 /** Build a snapshot for `sessionId`, or null if the scoped client can't see it
- *  (wrong tenant / not the user's own and they don't admin the workspace). */
+ *  (wrong tenant / not the user's own and they don't admin the workspace).
+ *
+ *  `includeDepth` controls whether the scenario's hidden layer (underlyingNeed /
+ *  resolutionPath / resolvability) is included. It must be true ONLY when the
+ *  caller has proven it's the worker (via the worker-only secret), because the
+ *  snapshot route renders the guest prompt from this scenario and returns it to
+ *  a caller holding a browser-minted session token — a trainee replaying that
+ *  token must never receive the hidden need they're meant to uncover. With
+ *  includeDepth false the scenario is depthless, exactly as voice behaved
+ *  before. */
 export async function loadVoiceSnapshot(
   db: ScopedDb,
   sessionId: string,
+  opts?: { includeDepth?: boolean },
 ): Promise<LoadedSession | null> {
   const session = await db.session.findUnique({
     where: { id: sessionId },
@@ -54,15 +64,16 @@ export async function loadVoiceSnapshot(
     scenario: {
       title: session.scenario.title,
       situation: session.scenario.situation,
-      // NOTE: scenario "depth" (underlyingNeed / resolutionPath / resolvability)
-      // is deliberately NOT included here. The voice worker runs the guest LLM
-      // itself, so anything in this snapshot ends up in the rendered guest
-      // prompt returned by /api/voice/worker/snapshot — and the token that
-      // endpoint accepts is minted by the trainee's own browser. Shipping the
-      // hidden need through it would let a trainee read the answer they're meant
-      // to discover. Voice depth is deferred until the worker authenticates with
-      // a worker-only credential the browser never holds. Text mode is unaffected
-      // (its guest LLM call runs server-side and never reaches the browser).
+      // Depth is gated on the worker secret (see doc comment above). Without it
+      // the guest prompt returned to a (possibly trainee-held) session token
+      // stays depthless.
+      ...(opts?.includeDepth
+        ? {
+            underlyingNeed: session.scenario.underlyingNeed,
+            resolutionPath: session.scenario.resolutionPath,
+            resolvability: session.scenario.resolvability,
+          }
+        : {}),
     },
     successCriteria: asCriteria(session.scenario.successCriteria),
     currentMood: isMoodVector(session.currentMood)

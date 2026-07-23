@@ -71,14 +71,16 @@ describe("runVoiceTurn", () => {
 
     const res = await runVoiceTurn(db, ids, snapshot, input);
 
-    // Mood reacts to the user's words + the prior guest line.
-    // Voice intentionally does NOT pass scenario depth to the mood updater —
-    // voice runs the guest LLM in the worker without the hidden need, so voice
-    // behaves exactly as before (depth is text-only for now).
+    // Mood reacts to the user's words + the prior guest line. Depth flows
+    // through when the snapshot carries it (loaded with the worker secret); this
+    // snapshot has none, so underlyingNeed/resolvability come through as null —
+    // identical mood behavior to before depth existed.
     expect(updateMood).toHaveBeenCalledWith({
       prevMood: priorMood,
       lastGuestText: "I've been waiting ages.",
       userText: input.userText,
+      underlyingNeed: null,
+      resolvability: null,
     });
     // Coach reacts to the NEW mood, the rubric, and the prior hint.
     expect(generateCoachHint).toHaveBeenCalledWith({
@@ -95,12 +97,16 @@ describe("runVoiceTurn", () => {
       mood: newMood,
       coachHint: "Now confirm the new room.",
     });
-    expect(res).toEqual({
+    expect(res).toMatchObject({
       status: "written",
       guestTurnIndex: 4,
       mood: newMood,
       coachHint: "Now confirm the new room.",
     });
+    // A mid-conversation mood (not a win/blow-up) → not concluded, so the voice
+    // UI won't surface the win-state banner yet.
+    expect(res).toHaveProperty("outcome");
+    if ("outcome" in res) expect(res.outcome.concluded).toBe(false);
   });
 
   it("keeps the prior mood (never loses the turn) when the mood model fails", async () => {

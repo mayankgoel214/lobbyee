@@ -15,6 +15,10 @@ import "server-only";
 import { generateCoachHint } from "@/lib/ai/coach";
 import { type MoodVector, updateMood } from "@/lib/ai/mood";
 import type { ScopedDb } from "@/lib/db/scoped";
+import {
+  assessOutcome,
+  type OutcomeAssessment,
+} from "@/lib/scenario/resolution";
 import type { ConversationSnapshot } from "@/lib/turn-engine";
 import { persistVoiceTurn } from "./persist-turn";
 
@@ -24,6 +28,9 @@ export type VoiceTurnResult =
       guestTurnIndex: number;
       mood: MoodVector;
       coachHint: string | null;
+      // Whether the guest's arc has concluded (win / best case / blow-up),
+      // pushed to the browser so the voice UI can show the win-state banner.
+      outcome: OutcomeAssessment;
     }
   | { status: "collision" };
 
@@ -51,14 +58,17 @@ export async function runVoiceTurn(
   // aloud — persistence is what must not fail here.
   let mood: MoodVector;
   try {
-    // No scenario depth in voice mood either — the voice guest (run in the
-    // worker) doesn't enact the hidden need yet (see lib/voice/snapshot.ts),
-    // so gating mood on it would be inconsistent with the guest's behavior.
-    // Voice therefore behaves exactly as before. Deferred with voice depth.
+    // Scenario depth flows through here whenever the snapshot was loaded with a
+    // valid worker secret (the depth fields are absent otherwise). When present,
+    // mood applies the same underlying-need / resolvability caps as the text
+    // path, so a voice guest is only truly satisfied once the real need is met —
+    // consistent with the depth-bearing guest prompt the worker is running.
     mood = await updateMood({
       prevMood: snapshot.currentMood,
       lastGuestText: lastGuest,
       userText: input.userText,
+      underlyingNeed: snapshot.scenario.underlyingNeed ?? null,
+      resolvability: snapshot.scenario.resolvability ?? null,
     });
   } catch (e) {
     console.error("voice mood update failed; keeping prior mood:", e);
@@ -87,5 +97,8 @@ export async function runVoiceTurn(
     guestTurnIndex: result.guestTurnIndex,
     mood,
     coachHint,
+    // resolvability is absent without the worker secret → assessOutcome falls
+    // back to "resolvable" thresholds, which is the safe, existing behavior.
+    outcome: assessOutcome(mood, snapshot.scenario.resolvability),
   };
 }

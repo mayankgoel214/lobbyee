@@ -17,7 +17,10 @@ import { z } from "zod";
 import { moodNote } from "@/lib/ai/guest";
 import { dbForRequest } from "@/lib/db/scoped";
 import { rateLimit } from "@/lib/rate-limit";
-import { authorizeVoiceRequest } from "@/lib/voice/authorize";
+import {
+  authorizeVoiceRequest,
+  requestIsFromWorker,
+} from "@/lib/voice/authorize";
 import { runVoiceTurn } from "@/lib/voice/run-voice-turn";
 import { loadVoiceSnapshot } from "@/lib/voice/snapshot";
 
@@ -64,10 +67,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid request." }, { status: 400 });
   }
 
+  // Depth (hidden need + resolvability) flows into mood only when the caller
+  // proves it's the worker — same gate as the snapshot route, so the guest's
+  // behavior and its mood stay consistent.
+  const includeDepth = requestIsFromWorker(request);
+
   // Full snapshot, RLS-scoped and addressed by the TOKEN's session (never the
-  // body) — we need the rubric + history here to compute mood/coach.
+  // body) — we need the scenario + history here to compute mood/coach/outcome.
   const db = dbForRequest(claims.userId);
-  const loaded = await loadVoiceSnapshot(db, claims.sessionId);
+  const loaded = await loadVoiceSnapshot(db, claims.sessionId, {
+    includeDepth,
+  });
   if (
     !loaded ||
     loaded.userId !== claims.userId ||
@@ -122,5 +132,8 @@ export async function POST(request: Request) {
     mood: result.mood,
     moodNote: moodNote(result.mood), // rendered, for the next guest reply
     coachHint: result.coachHint, // for the trainee's coach strip (M4)
+    // The worker forwards this to the browser (data channel) so the voice UI
+    // can show the win-state banner. Not secret — just the outcome label.
+    outcome: result.outcome,
   });
 }

@@ -6,6 +6,7 @@
 // zod), so its runtime guard `isMoodVector` can't be used in a client bundle.
 // That's why `isMood` below is a small dependency-free copy rather than a reuse.
 import type { MoodVector } from "@/lib/ai/mood";
+import type { OutcomeAssessment } from "@/lib/scenario/resolution";
 
 // One line in the live transcript. Same shape the text-path chat uses.
 export type TranscriptLine = { role: "user" | "guest"; text: string };
@@ -13,14 +14,32 @@ export type TranscriptLine = { role: "user" | "guest"; text: string };
 // The custom server message the worker pushes after each persisted turn
 // (worker/lobbyee_bot.py → rtvi.send_server_message). coachHint/mood may be null
 // when the app's coach/mood read failed or timed out that turn — callers keep the
-// previous value in that case.
+// previous value in that case. `outcome` carries whether the guest's arc has
+// concluded so the voice UI can show the win-state banner.
 export type CoachServerMessage = {
   type: "coach";
   coachHint: string | null;
   mood: MoodVector | null;
+  outcome?: OutcomeAssessment | null;
   userText: string;
   guestText: string;
 };
+
+// Runtime guard for the outcome payload off the wire. Only surfaces a CONCLUDED
+// outcome (the only state the UI acts on) and requires the fields the banner
+// renders, so a malformed/partial payload can never break the screen.
+export function isConcludedOutcome(
+  value: unknown,
+): value is OutcomeAssessment & { concluded: true } {
+  if (typeof value !== "object" || value === null) return false;
+  const o = value as Record<string, unknown>;
+  return (
+    o.concluded === true &&
+    typeof o.headline === "string" &&
+    typeof o.detail === "string" &&
+    (o.tone === "good" || o.tone === "warn" || o.tone === "bad")
+  );
+}
 
 // The worker's MoodInjector prefixes each user utterance fed to the guest LLM
 // with a private "[Guest mood right now — …]" stage direction. Because the RTVI

@@ -83,6 +83,14 @@ const schema = z.object({
   // session-token route 503s until it's set, so voice is off by default.
   VOICE_SESSION_TOKEN_SECRET: z.string().min(32).optional(),
 
+  // Voice depth. A shared secret between the app and the WORKER only (set in
+  // Vercel + the HF Space, NEVER shipped to the browser). The worker presents
+  // it on snapshot/turn calls to prove it's the worker, not a trainee replaying
+  // their session token — only then does the app include the scenario's hidden
+  // "underlying need" so the voice guest can enact it. Unset (or absent header)
+  // → voice stays depthless, exactly as before. Min 32 chars.
+  VOICE_WORKER_SECRET: z.string().min(32).optional(),
+
   // Error monitoring (Sentry). Optional — server error capture stays a no-op
   // until the DSN is set, so the app runs identically without it.
   SENTRY_DSN: z.string().url().optional(),

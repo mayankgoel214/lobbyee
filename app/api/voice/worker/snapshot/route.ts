@@ -17,7 +17,10 @@ import { NextResponse } from "next/server";
 import { moodNote, OPENING_CUE } from "@/lib/ai/guest";
 import { dbForRequest } from "@/lib/db/scoped";
 import { rateLimit } from "@/lib/rate-limit";
-import { authorizeVoiceRequest } from "@/lib/voice/authorize";
+import {
+  authorizeVoiceRequest,
+  requestIsFromWorker,
+} from "@/lib/voice/authorize";
 import { loadVoiceSnapshot } from "@/lib/voice/snapshot";
 import {
   GUEST_SYSTEM_VERSION,
@@ -47,9 +50,17 @@ export async function GET(request: Request) {
     });
   }
 
+  // Depth (the hidden "underlying need") is included in the rendered guest
+  // prompt ONLY when the caller proves it's the worker via the shared secret.
+  // A trainee replaying their own session token to this endpoint gets the
+  // depthless prompt — they can never read the answer they're meant to uncover.
+  const includeDepth = requestIsFromWorker(request);
+
   // Scoped to the token's trainee — never a client-supplied id, never dbAdmin.
   const db = dbForRequest(claims.userId);
-  const loaded = await loadVoiceSnapshot(db, claims.sessionId);
+  const loaded = await loadVoiceSnapshot(db, claims.sessionId, {
+    includeDepth,
+  });
   if (
     !loaded ||
     loaded.userId !== claims.userId ||

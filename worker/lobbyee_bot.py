@@ -97,8 +97,18 @@ VAD_STOP_SECS = float(os.getenv("VOICE_VAD_STOP_SECS", "1.5"))
 logger.info(f"Lobbyee voice worker → {BASE_URL} (guest model: {GUEST_MODEL})")
 
 
+# Shared worker-only secret. Presented ALONGSIDE the per-session bearer token so
+# the app knows the caller is the worker (not a trainee replaying their token)
+# and may return the scenario's hidden "underlying need". Absent → the app keeps
+# voice depthless, exactly as before.
+WORKER_SECRET = os.getenv("VOICE_WORKER_SECRET", "")
+
+
 def _auth_headers(token: str) -> dict:
-    return {"Authorization": f"Bearer {token}"}
+    h = {"Authorization": f"Bearer {token}"}
+    if WORKER_SECRET:
+        h["X-Voice-Worker-Secret"] = WORKER_SECRET
+    return h
 
 
 class MoodInjector(FrameProcessor):
@@ -196,6 +206,9 @@ async def _post_turn(
                             # ({frustration,trust,patience,satisfaction} 0-100) —
                             # drives the in-app live analytics panel. Presentation-only.
                             "mood": data.get("mood"),
+                            # Whether the guest's arc has concluded (win / best case /
+                            # blow-up) so the browser can show the win-state banner.
+                            "outcome": data.get("outcome"),
                             "userText": user_text,
                             "guestText": guest_text,
                         }

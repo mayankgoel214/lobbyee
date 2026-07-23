@@ -9,6 +9,7 @@
 // any session/user id from the request body; the trusted ids are the verified
 // claims this returns. The route assumes the claims' RLS context downstream.
 import "server-only";
+import { timingSafeEqual } from "node:crypto";
 import { env } from "@/lib/env";
 import { type VoiceTokenClaims, verifyVoiceToken } from "./token";
 
@@ -43,4 +44,36 @@ export function authorizeVoiceRequest(
       : verifyVoiceToken(token, secret, { nowSeconds: opts.nowSeconds });
   if (!result.ok) return { ok: false, status: 401 };
   return { ok: true, claims: result.claims };
+}
+
+// The header the worker sends its shared secret in. Lowercase — Request headers
+// are case-insensitive but we read it lowercased.
+const WORKER_SECRET_HEADER = "x-voice-worker-secret";
+
+/** True when the request carries the shared WORKER secret, proving it comes
+ *  from the voice worker itself rather than a trainee's browser replaying a
+ *  session token. Only a true result may unlock depth-bearing scenario data
+ *  (the hidden "underlying need"). Constant-time compare.
+ *
+ *  Safe by default: if VOICE_WORKER_SECRET is unset, or the header is missing
+ *  or wrong, this returns false and voice stays depthless — exactly as before.
+ *  This is an ADDITIONAL check layered on top of the session-token auth above;
+ *  it never replaces it. */
+export function requestIsFromWorker(
+  request: Request,
+  secret: string | undefined = env.VOICE_WORKER_SECRET,
+): boolean {
+  if (!secret) return false;
+  const given = request.headers.get(WORKER_SECRET_HEADER);
+  if (!given) return false;
+  const a = Buffer.from(given, "utf8");
+  const b = Buffer.from(secret, "utf8");
+  // Length check first — timingSafeEqual throws on unequal lengths, and the
+  // length of a secret isn't itself sensitive here.
+  if (a.length !== b.length) return false;
+  try {
+    return timingSafeEqual(a, b);
+  } catch {
+    return false;
+  }
 }

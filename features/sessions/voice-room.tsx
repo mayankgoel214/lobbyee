@@ -25,7 +25,7 @@ import {
   useRTVIClientEvent,
 } from "@pipecat-ai/client-react";
 import { SmallWebRTCTransport } from "@pipecat-ai/small-webrtc-transport";
-import { Mic, MicOff, Square } from "lucide-react";
+import { CheckCircle2, Mic, MicOff, Square } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
   type ComponentProps,
@@ -39,6 +39,7 @@ import {
   clamp100,
   dedupeUserLine,
   isCoachMessage,
+  isConcludedOutcome,
   isMood,
   MOOD_AXES,
   stripMoodNote,
@@ -47,6 +48,7 @@ import {
   wellbeingLabel,
 } from "@/features/sessions/voice-analytics";
 import type { MoodVector } from "@/lib/ai/mood";
+import type { OutcomeAssessment } from "@/lib/scenario/resolution";
 
 // Where the worker's WebRTC signaling lives. Local dev default; point at a
 // tunnel (for a phone) or the hosted worker via this public env var.
@@ -347,6 +349,9 @@ function VoiceRoomInner({
   // each turn from the worker's server message; the transcript appends each final
   // user line + each guest line as the RTVI events arrive.
   const [coachHint, setCoachHint] = useState<string | null>(initialHint);
+  // Set once the guest's arc concludes (win / best case / blow-up), from the
+  // worker's per-turn push. Drives the win-state banner + "see report" CTA.
+  const [outcome, setOutcome] = useState<OutcomeAssessment | null>(null);
   const [transcript, setTranscript] = useState<TranscriptLine[]>([]);
   // Live (interim) subtitle of what the trainee is currently saying, shown as an
   // in-progress bubble until the line finalizes. This is the visible signal that
@@ -418,6 +423,9 @@ function VoiceRoomInner({
         const m = data.mood;
         setMoodHistory((h) => [...h, m].slice(-MOOD_HISTORY_CAP));
       }
+      // Once the guest's arc concludes, latch the win-state (only ever set to a
+      // concluded outcome, so an in-progress turn never clears the banner).
+      if (isConcludedOutcome(data.outcome)) setOutcome(data.outcome);
     }, []),
   );
 
@@ -527,6 +535,54 @@ function VoiceRoomInner({
             </span>
             <p className="text-sm text-neutral-800">{coachHint}</p>
           </div>
+        </div>
+      )}
+
+      {outcome && (
+        <div
+          className={`flex flex-col gap-2 border-b px-6 py-3 ${
+            outcome.tone === "bad"
+              ? "border-bad/30 bg-bad/5"
+              : outcome.tone === "warn"
+                ? "border-warn/30 bg-warn/5"
+                : "border-good/30 bg-good/5"
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <CheckCircle2
+              size={16}
+              className={
+                outcome.tone === "bad"
+                  ? "text-bad"
+                  : outcome.tone === "warn"
+                    ? "text-warn"
+                    : "text-good"
+              }
+              aria-hidden="true"
+            />
+            <span
+              className={`text-sm font-semibold ${
+                outcome.tone === "bad"
+                  ? "text-bad"
+                  : outcome.tone === "warn"
+                    ? "text-warn"
+                    : "text-good"
+              }`}
+            >
+              {outcome.headline}
+            </span>
+          </div>
+          <p className="text-xs leading-relaxed text-neutral-600">
+            {outcome.detail}
+          </p>
+          <button
+            type="button"
+            onClick={end}
+            disabled={ending}
+            className="mt-1 inline-flex w-fit items-center gap-1.5 rounded-lg bg-accent-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {ending ? "Preparing your report…" : "See your coaching report"}
+          </button>
         </div>
       )}
 

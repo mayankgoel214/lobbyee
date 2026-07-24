@@ -15,10 +15,16 @@ export function StartSessionForm({
   personas,
   scenarios,
   voiceEnabled = false,
+  defaultPersonaId,
+  defaultScenarioId,
 }: {
   slug: string;
   // Phase 5 M4: when true, offer a Text/Voice toggle. Off → text only.
   voiceEnabled?: boolean;
+  // The adaptive next-drill recommendation, pre-selected in the dropdowns so a
+  // trainee lands on the guest/situation that targets their weakest LEARN step.
+  defaultPersonaId?: string | undefined;
+  defaultScenarioId?: string | undefined;
   personas: Array<{ id: string; name: string; guestType: string }>;
   scenarios: Array<{
     id: string;
@@ -43,7 +49,12 @@ export function StartSessionForm({
         <input type="hidden" name="modality" value={modality} />
         <div>
           <Label htmlFor="personaId">Guest (who you'll be facing)</Label>
-          <select id="personaId" name="personaId" className={selectClass}>
+          <select
+            id="personaId"
+            name="personaId"
+            defaultValue={defaultPersonaId}
+            className={selectClass}
+          >
             {personas.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name}, {p.guestType}
@@ -53,7 +64,12 @@ export function StartSessionForm({
         </div>
         <div>
           <Label htmlFor="scenarioId">Situation (what's going on)</Label>
-          <select id="scenarioId" name="scenarioId" className={selectClass}>
+          <select
+            id="scenarioId"
+            name="scenarioId"
+            defaultValue={defaultScenarioId}
+            className={selectClass}
+          >
             {scenarios.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.title} · difficulty {s.difficulty}

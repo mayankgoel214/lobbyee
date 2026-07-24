@@ -1,8 +1,13 @@
 import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { Card } from "@/components/ui";
+import { ProgressPanel } from "@/features/sessions/progress-panel";
 import { StartSessionForm } from "@/features/sessions/start-form";
 import { requireMembership } from "@/lib/auth/session";
+import {
+  recommendNextDrill,
+  trainingProgress,
+} from "@/lib/coaching/progression";
 import { dbForRequest } from "@/lib/db/scoped";
 
 export default async function TrainPage({
@@ -14,7 +19,7 @@ export default async function TrainPage({
   const { user, workspace } = await requireMembership(slug);
   const db = dbForRequest(user.id);
 
-  const [personas, scenarios, recent] = await Promise.all([
+  const [personas, scenarios, recent, evaluations] = await Promise.all([
     db.persona.findMany({
       where: { workspaceId: workspace.id },
       orderBy: { createdAt: "desc" },
@@ -29,7 +34,47 @@ export default async function TrainPage({
       take: 5,
       include: { persona: true, scenario: true },
     }),
+    // This trainee's own coaching scores — RLS returns only their own. Feeds the
+    // progression panel + the adaptive next-drill recommendation.
+    db.evaluation.findMany({
+      where: { session: { userId: user.id } },
+      orderBy: { createdAt: "desc" },
+      take: 100,
+      select: {
+        createdAt: true,
+        empathyScore: true,
+        clarityScore: true,
+        problemSolvingScore: true,
+        professionalismScore: true,
+      },
+    }),
   ]);
+
+  // Derive skill progression + the next drill from evaluations we already store.
+  const progress = trainingProgress(
+    evaluations.map((e) => ({
+      userId: user.id,
+      createdAt: e.createdAt,
+      scores: {
+        empathy: e.empathyScore,
+        clarity: e.clarityScore,
+        problem_solving: e.problemSolvingScore,
+        professionalism: e.professionalismScore,
+      },
+    })),
+    new Date(),
+  );
+  const recommendation = recommendNextDrill(
+    progress,
+    scenarios.map((s) => ({
+      id: s.id,
+      title: s.title,
+      difficulty: s.difficulty,
+    })),
+    personas.map((p) => ({ id: p.id })),
+    recent.map((s) => s.scenarioId),
+    recent.map((s) => s.personaId),
+  );
 
   return (
     <main className="mx-auto max-w-xl p-6 md:p-8">
@@ -49,21 +94,26 @@ export default async function TrainPage({
           </p>
         </Card>
       ) : (
-        <StartSessionForm
-          slug={slug}
-          voiceEnabled={workspace.voiceEnabled}
-          personas={personas.map((p) => ({
-            id: p.id,
-            name: p.name,
-            guestType: p.guestType,
-          }))}
-          scenarios={scenarios.map((s) => ({
-            id: s.id,
-            title: s.title,
-            difficulty: s.difficulty,
-            isLibrary: s.isLibrary,
-          }))}
-        />
+        <>
+          <ProgressPanel progress={progress} recommendation={recommendation} />
+          <StartSessionForm
+            slug={slug}
+            voiceEnabled={workspace.voiceEnabled}
+            defaultPersonaId={recommendation?.personaId}
+            defaultScenarioId={recommendation?.scenarioId}
+            personas={personas.map((p) => ({
+              id: p.id,
+              name: p.name,
+              guestType: p.guestType,
+            }))}
+            scenarios={scenarios.map((s) => ({
+              id: s.id,
+              title: s.title,
+              difficulty: s.difficulty,
+              isLibrary: s.isLibrary,
+            }))}
+          />
+        </>
       )}
 
       {recent.length > 0 && (

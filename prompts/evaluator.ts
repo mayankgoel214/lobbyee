@@ -7,9 +7,14 @@
 // Rubric authorship: v1 is founder-authored. A hospitality SME pass is an
 // open item (architecture §14) — the gold-set harness exists to measure any
 // rewrite against human ratings before it ships.
+import {
+  METHOD_NAME,
+  METHOD_SUMMARY,
+  STEP_FOR_COMPETENCY,
+} from "@/lib/coaching/method";
 import { asResolvability, type Resolvability } from "@/lib/scenario/depth";
 
-export const EVALUATOR_VERSION = "evaluator@v3";
+export const EVALUATOR_VERSION = "evaluator@v4";
 
 export const COMPETENCIES = [
   "empathy",
@@ -103,7 +108,12 @@ export function renderTranscript(
 
 export function renderEvaluatorSystem(competency: CompetencyKey): string {
   const { rubric } = RUBRICS[competency];
+  const step = STEP_FOR_COMPETENCY[competency];
   return `You are an expert hospitality trainer reviewing a practice conversation between a front-line staff member (STAFF) and a simulated difficult guest (GUEST). You evaluate exactly ONE competency and produce structured coaching feedback.
+
+You teach the ${METHOD_NAME} method of service recovery:
+${METHOD_SUMMARY}
+This competency is built mainly by the ${METHOD_NAME} step "${step.label}" (${step.teach}). Judge the staff member partly on how well they used that step, and frame your coaching in its terms.
 
 ${rubric}
 
@@ -114,7 +124,8 @@ Scoring discipline:
 - Judge what was actually said, not intent you imagine behind it.
 - 3 is a solid baseline performance; reserve 5 for genuinely excellent work and 1 for actively harmful handling.
 - Write in natural, plain spoken English. Do not use em dashes; use commas or periods. Sound like a real person, not marketing copy.
-- The summary speaks directly to the staff member ("you") in a warm, specific coaching voice: what they did well, and the single most useful thing to do differently next time. 2 to 4 sentences.
+
+The summary speaks directly to the staff member ("you") in a warm, specific coaching voice and MUST teach, not just judge. In 2 to 4 sentences: name what they did well, then give the single most useful ${METHOD_NAME}-grounded technique to practice next. THEN, when the transcript contains a clearly weak or missed staff line for this competency, add one final short sentence in the exact form: Try saying: "<a better version of that line, one sentence, in the staff member's own voice>". Ground that rewrite in what actually happened; if there is no clearly weak line, omit the "Try saying" sentence rather than invent one.
 
 Return JSON matching the response schema: score (integer 1 to 5), summary, evidence (0 to 6 items, each with kind "strength" or "missed_opportunity", messageId, quote, rationale).`;
 }
@@ -186,11 +197,11 @@ export function renderOverallSummaryPrompt(
   const lines = results
     .map((r) => `${RUBRICS[r.competency].label}, ${r.score}/5: ${r.summary}`)
     .join("\n\n");
-  return `You are a hospitality trainer writing the headline of a coaching report. Below are four per-competency assessments of one practice session.
+  return `You are a hospitality trainer writing the headline of a coaching report. You teach the ${METHOD_NAME} method of service recovery (${METHOD_SUMMARY}). Below are four per-competency assessments of one practice session.
 
 ${lines}
 
-Write a 2 to 3 sentence overall summary addressed directly to the staff member ("you"): lead with their clearest strength, then name the single highest-leverage thing to practice next. Write in natural, plain spoken English. Do not use em dashes; use commas or periods. Sound like a real person, not marketing copy. Warm, specific, no bullet points, no scores. Return JSON: {"summary": "..."}`;
+Write a 2 to 3 sentence overall summary addressed directly to the staff member ("you"): lead with their clearest strength, then name the single highest-leverage ${METHOD_NAME} step to practice next and why it matters here. Write in natural, plain spoken English. Do not use em dashes; use commas or periods. Sound like a real person, not marketing copy. Warm, specific, no bullet points, no scores. Return JSON: {"summary": "..."}`;
 }
 
 export const COMPETENCY_LABELS: Record<CompetencyKey, string> =
